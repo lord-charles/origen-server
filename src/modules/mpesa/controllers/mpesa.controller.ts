@@ -20,6 +20,7 @@ import {
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { MpesaService } from '../services/mpesa.service';
 import { InitiateB2CDto, InitiateC2BDto } from '../dtos/mpesa.dto';
+import { Public } from 'src/modules/auth/decorators/public.decorator';
 
 @ApiTags('Mpesa')
 @ApiBearerAuth()
@@ -42,6 +43,7 @@ export class MpesaController {
     return this.mpesaService.initiateB2C(dto, req.user.id);
   }
 
+  @Public()
   @Post('callback')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({
