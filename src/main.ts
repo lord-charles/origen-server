@@ -24,22 +24,47 @@ async function bootstrap() {
     }),
   );
 
+  // Set global prefix for all routes
+  app.setGlobalPrefix('origen/api');
+
   // Get the configuration service
   const configService = app.get(ConfigService);
 
-  app.setGlobalPrefix('origen/api');
   // Set up Swagger
   const config = new DocumentBuilder()
     .setTitle('OrigenFresh API')
     .setDescription('The OrigenFresh API documentation')
     .setVersion('1.0')
-    .addBearerAuth() // Add bearer auth to Swagger
+    .addBearerAuth()
+    .addServer('/') // Add root server to ensure paths are correct
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('', app, document);
+  
+  // Setup Swagger under the global prefix path
+  SwaggerModule.setup('origen/api/docs', app, document, {
+    swaggerOptions: {
+      persistAuthorization: true,
+      defaultModelsExpandDepth: -1, // Hide schemas by default
+      displayRequestDuration: true, // Show request duration
+      filter: true, // Enable filtering operations
+      tagsSorter: 'alpha', // Sort tags alphabetically
+      operationsSorter: 'alpha', // Sort operations alphabetically
+    },
+    customSiteTitle: 'OrigenFresh API Documentation',
+    customCss: '.swagger-ui .topbar { display: none }', // Hide the top bar
+  });
 
   const port = configService.get<number>('PORT', 3000);
   await app.listen(port);
+  
+  // Log the URLs
+  const logger = new Logger('Bootstrap');
+  logger.log(`Server is running on: http://localhost:${port}`);
+  logger.log(`API Documentation available at: http://localhost:${port}/origen/api/docs`);
+  logger.log(`API Base URL: http://localhost:${port}/origen/api`);
+  
+  // Log example endpoint
+  logger.log(`Example endpoint: http://localhost:${port}/origen/api/wallet-transactions`);
 }
 bootstrap();
