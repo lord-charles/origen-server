@@ -5,7 +5,6 @@ import { ValidationPipe, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 
 async function bootstrap() {
-  const logger = new Logger('Bootstrap');
   const app = await NestFactory.create(AppModule, {
     logger: ['error', 'warn', 'log', 'debug', 'verbose'],
   });
@@ -28,6 +27,7 @@ async function bootstrap() {
   // Get the configuration service
   const configService = app.get(ConfigService);
 
+  app.setGlobalPrefix('origen/api');
   // Set up Swagger
   const config = new DocumentBuilder()
     .setTitle('OrigenFresh API')
@@ -37,11 +37,9 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api', app, document);
+  SwaggerModule.setup('', app, document);
 
   const port = configService.get<number>('PORT', 3000);
   await app.listen(port);
-  logger.log(`Application is running on: http://localhost:${port}`);
-  logger.log(`API documentation available at: http://localhost:${port}/api`);
 }
 bootstrap();
