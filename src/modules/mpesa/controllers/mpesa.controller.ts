@@ -24,7 +24,7 @@ import { InitiateB2CDto, InitiateC2BDto } from '../dtos/mpesa.dto';
 @ApiTags('Mpesa')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
-@Controller('mpesa')
+@Controller('payment')
 export class MpesaController {
   private readonly logger = new Logger(MpesaController.name);
 
