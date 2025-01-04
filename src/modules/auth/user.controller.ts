@@ -84,6 +84,27 @@ export class UserController {
     });
   }
 
+  // Find user by National ID
+  @Get('/user/national-id/:nationalId')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Find user by National ID',
+    description: 'Returns user information based on National ID',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'User found successfully',
+    type: CreateUserDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'User not found',
+  })
+  async findByNationalId(@Param('nationalId') nationalId: string) {
+    return this.userService.findByNationalId(nationalId);
+  }
+
   // Update user details
   // @Roles('admin', 'hr')
   @Patch('/user/:id')

@@ -77,11 +77,6 @@ export class AuthService {
     };
   }
 
-  /**
-   * Generate JWT token
-   * @param user User object
-   * @returns Token and expiration
-   */
   private async generateToken(user: User): Promise<TokenPayload> {
     const payload: JwtPayload = {
       sub: (user as UserDocument)._id.toString(),

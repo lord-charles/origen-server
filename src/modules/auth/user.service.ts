@@ -106,26 +106,7 @@ export class UserService {
     return { message: 'Password reset successfully' };
   }
 
-  /**
-   * @description Get the authenticated employee's profile
-   * @returns Employee profile
-   */
-  async getProfile(): Promise<User> {
-    // Replace with actual logic to fetch authenticated user's ID
-    const userId = 'authenticated_user_id';
-    const user = await this.userModel.findById(userId);
-    if (!user) throw new NotFoundException('User not found');
-
-    return user;
-  }
-
-  /**
-   * @description Get a specific employee by ID
-   * @param id
-   * @returns Employee details
-   */
   async findById(id: string): Promise<User> {
-    console.log(id);
     const user = await this.userModel.findById(id);
     if (!user) throw new NotFoundException('User not found');
 
@@ -214,9 +195,13 @@ export class UserService {
   /**
    * Find a user by National ID
    * @param nationalId National ID
-   * @returns User or null
+   * @returns User
    */
-  async findByNationalId(nationalId: string): Promise<User | null> {
-    return this.userModel.findOne({ nationalId });
+  async findByNationalId(nationalId: string): Promise<User> {
+    const user = await this.userModel.findOne({ nationalId });
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return user;
   }
 }
