@@ -33,27 +33,6 @@ import { UserFilterDto } from './dto/filter.dto';
 export class UserController {
   constructor(private readonly userService: UserService) {}
 
-  // Get user by ID - Returns detailed user information
-  @Get('/user/:id')
-  @UseGuards(JwtAuthGuard)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({
-    summary: 'Get employee by ID',
-    description: 'Returns detailed information about a specific employee',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Employee details retrieved successfully',
-    type: CreateUserDto,
-  })
-  @ApiResponse({
-    status: 404,
-    description: 'Employee not found',
-  })
-  async findById(@Param('id') id: string) {
-    return this.userService.findById(id);
-  }
-
   // List all users with optional filters
   // @Roles('admin', 'hr')
   @Get('/users')
@@ -83,6 +62,50 @@ export class UserController {
       page,
       limit,
     });
+  }
+
+  // Get user wallet balance
+  @Get('/user/wallet-balance')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get user wallet balance' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns the user wallet balance',
+    schema: {
+      type: 'object',
+      properties: {
+        walletBalance: {
+          type: 'number',
+          description: 'Current wallet balance',
+        },
+      },
+    },
+  })
+  async getWalletBalance(@Req() req: any) {
+    const userId = req.user._id;
+    const user = await this.userService.findById(userId);
+    return { walletBalance: user.walletBalance || 0 };
+  }
+
+  // Get user by ID - Returns detailed user information
+  @Get('/user/:id')
+  @UseGuards(JwtAuthGuard)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get employee by ID',
+    description: 'Returns detailed information about a specific employee',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Employee details retrieved successfully',
+    type: CreateUserDto,
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Employee not found',
+  })
+  async findById(@Param('id') id: string) {
+    return this.userService.findById(id);
   }
 
   // Find user by National ID
@@ -146,27 +169,5 @@ export class UserController {
   })
   async remove(@Param('id') id: string) {
     return this.userService.remove(id);
-  }
-
-  @Get('wallet-balance')
-  @UseGuards(JwtAuthGuard)
-  @ApiOperation({ summary: 'Get user wallet balance' })
-  @ApiResponse({
-    status: 200,
-    description: 'Returns the user wallet balance',
-    schema: {
-      type: 'object',
-      properties: {
-        walletBalance: {
-          type: 'number',
-          description: 'Current wallet balance',
-        },
-      },
-    },
-  })
-  async getWalletBalance(@Req() req: any) {
-    const userId = req.user._id;
-    const user = await this.userService.findById(userId);
-    return { walletBalance: user.walletBalance || 0 };
   }
 }
