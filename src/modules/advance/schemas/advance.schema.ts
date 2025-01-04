@@ -21,6 +21,13 @@ export class Advance {
   amount: number;
 
   @ApiProperty({
+    description: 'Amount repaid for the advance in KES',
+    example: 0,
+  })
+  @Prop({ type: Number, default: 0 })
+  amountRepaid: number;
+
+  @ApiProperty({
     description: 'Purpose of the advance',
     example: 'Medical expenses',
   })
@@ -30,11 +37,11 @@ export class Advance {
   @ApiProperty({
     description: 'Status of the advance request',
     example: 'pending',
-    enum: ['pending', 'approved', 'declined', 'disbursed'],
+    enum: ['pending', 'approved', 'declined', 'repaying', 'repaid'],
   })
   @Prop({
     type: String,
-    enum: ['pending', 'approved', 'declined', 'disbursed'],
+    enum: ['pending', 'approved', 'declined', 'repaying', 'repaid'],
     default: 'pending',
   })
   status: string;

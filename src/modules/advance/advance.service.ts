@@ -240,15 +240,40 @@ export class AdvanceService {
       Math.min((basicSalary * currentAdvancePercentage) / 100, maxAdvance),
     );
 
+    // Get advance history metrics
+    const advances = await this.advanceModel.find({
+      employee: employeeId,
+      status: { $in: ['approved', 'repaying', 'repaid'] },
+    });
+
+    const totalAdvancesReceived = advances.reduce(
+      (sum, adv) => sum + adv.amount,
+      0,
+    );
+    const totalAmountRepaid = advances.reduce(
+      (sum, adv) => sum + (adv.amountRepaid || 0),
+      0,
+    );
+    const repaymentBalance = totalAdvancesReceived - totalAmountRepaid;
+
     // Calculate next payday (25th of current or next month)
     const nextPayday = this.calculateNextPayday();
 
+    // Adjust available advance based on current repayment balance
+    const adjustedAvailableAdvance = Math.max(
+      0,
+      Math.min(availableAdvance - repaymentBalance, maxAdvance),
+    );
+
+    // Return calculated advance details
     return {
-      availableAdvance: Math.floor(availableAdvance / 100) * 100, // Round to nearest 100
+      availableAdvance: Math.floor(adjustedAvailableAdvance / 100) * 100, // Round to nearest 100
       maxAdvance,
       basicSalary,
       advancePercentage: currentAdvancePercentage,
-      previousAdvances: 0,
+      previousAdvances: totalAdvancesReceived,
+      totalAmountRepaid,
+      repaymentBalance,
       nextPayday: nextPayday.toISOString().split('T')[0],
     };
   }

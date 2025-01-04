@@ -86,39 +86,27 @@ export class MonthlyAdvanceSummaryDto {
 }
 
 export class AdvanceCalculationResponseDto {
-  @ApiProperty({
-    description: 'Available advance amount',
-    example: 15000,
-  })
+  @ApiProperty({ description: 'Available advance amount' })
   availableAdvance: number;
 
-  @ApiProperty({
-    description: 'Maximum advance amount allowed',
-    example: 25000,
-  })
+  @ApiProperty({ description: 'Maximum advance allowed' })
   maxAdvance: number;
 
-  @ApiProperty({
-    description: 'Employee basic salary',
-    example: 50000,
-  })
+  @ApiProperty({ description: 'Basic salary' })
   basicSalary: number;
 
-  @ApiProperty({
-    description: 'Current advance percentage of salary',
-    example: 30,
-  })
+  @ApiProperty({ description: 'Current advance percentage' })
   advancePercentage: number;
 
-  @ApiProperty({
-    description: 'Total advances taken this month',
-    example: 10000,
-  })
+  @ApiProperty({ description: 'Previous advances received' })
   previousAdvances: number;
 
-  @ApiProperty({
-    description: 'Next salary payment date',
-    example: '2025-01-25',
-  })
+  @ApiProperty({ description: 'Total amount repaid to date' })
+  totalAmountRepaid: number;
+
+  @ApiProperty({ description: 'Current repayment balance' })
+  repaymentBalance: number;
+
+  @ApiProperty({ description: 'Next payday date in YYYY-MM-DD format' })
   nextPayday: string;
 }
