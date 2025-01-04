@@ -55,13 +55,23 @@ export class CreateAdvanceDto {
 export class UpdateAdvanceStatusDto {
   @ApiProperty({
     description: 'Status of the advance request',
-    enum: ['pending', 'approved', 'declined', 'disbursed'],
+    enum: [
+      'pending',
+      'approved',
+      'declined',
+      'disbursed',
+      'repaying',
+      'repaid',
+    ],
     example: 'approved',
   })
   @IsNotEmpty({ message: 'Status is required' })
-  @IsEnum(['pending', 'approved', 'declined', 'disbursed'], {
-    message: 'Invalid advance status',
-  })
+  @IsEnum(
+    ['pending', 'approved', 'declined', 'disbursed', 'repaying', 'repaid'],
+    {
+      message: 'Invalid advance status',
+    },
+  )
   status: string;
 
   @ApiProperty({
