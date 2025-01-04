@@ -10,6 +10,7 @@ import {
   HttpStatus,
   Patch,
   UseGuards,
+  Req,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -145,5 +146,27 @@ export class UserController {
   })
   async remove(@Param('id') id: string) {
     return this.userService.remove(id);
+  }
+
+  @Get('wallet-balance')
+  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Get user wallet balance' })
+  @ApiResponse({
+    status: 200,
+    description: 'Returns the user wallet balance',
+    schema: {
+      type: 'object',
+      properties: {
+        walletBalance: {
+          type: 'number',
+          description: 'Current wallet balance',
+        },
+      },
+    },
+  })
+  async getWalletBalance(@Req() req: any) {
+    const userId = req.user._id;
+    const user = await this.userService.findById(userId);
+    return { walletBalance: user.walletBalance || 0 };
   }
 }

@@ -9,12 +9,20 @@ import { Advance, AdvanceDocument } from './schemas/advance.schema';
 import { CreateAdvanceDto } from './dto/advance.dto';
 import { UpdateAdvanceStatusDto } from './dto/advance.dto';
 import { AdvanceFilterDto } from './dto/advance.dto';
+import {
+  AdvanceCalculationResponseDto,
+  MonthlyAdvanceSummaryDto,
+  DailyAdvanceDto,
+} from './dto/advance-calculation.dto';
+import { User, UserDocument } from '../auth/schemas/user.schema';
 
 @Injectable()
 export class AdvanceService {
   constructor(
     @InjectModel(Advance.name)
     private readonly advanceModel: Model<AdvanceDocument>,
+    @InjectModel(User.name)
+    private readonly userModel: Model<UserDocument>,
   ) {}
 
   async create(
@@ -195,5 +203,182 @@ export class AdvanceService {
       };
       return acc;
     }, {});
+  }
+
+  async calculateAvailableAdvance(
+    employeeId: string,
+  ): Promise<AdvanceCalculationResponseDto> {
+    // Get employee's base salary from user profile
+    const employee = await this.userModel
+      .findById(employeeId)
+      .select('baseSalary');
+    if (!employee) {
+      throw new NotFoundException('Employee not found');
+    }
+
+    const basicSalary = employee.baseSalary;
+    if (!basicSalary) {
+      throw new BadRequestException('Employee base salary not set');
+    }
+
+    const maxAdvancePercentage = 50; // 50% of basic salary
+    const maxAdvance = (basicSalary * maxAdvancePercentage) / 100;
+
+    // Get current date and calculate working days
+    const today = new Date();
+    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
+    const workingDays = this.calculateWorkingDays(startOfMonth, today);
+
+    // Calculate daily accrual rate
+    const totalWorkingDaysInMonth = 22; // Average working days per month
+    const dailyAccrualRate = maxAdvancePercentage / totalWorkingDaysInMonth;
+    const currentAdvancePercentage = dailyAccrualRate * workingDays;
+
+    // Calculate available advance
+    const availableAdvance = Math.max(
+      0,
+      Math.min((basicSalary * currentAdvancePercentage) / 100, maxAdvance),
+    );
+
+    // Calculate next payday (25th of current or next month)
+    const nextPayday = this.calculateNextPayday();
+
+    return {
+      availableAdvance: Math.floor(availableAdvance / 100) * 100, // Round to nearest 100
+      maxAdvance,
+      basicSalary,
+      advancePercentage: currentAdvancePercentage,
+      previousAdvances: 0,
+      nextPayday: nextPayday.toISOString().split('T')[0],
+    };
+  }
+
+  async getMonthlyAdvanceSummary(
+    employeeId: string,
+    month: number,
+    year: number,
+  ): Promise<MonthlyAdvanceSummaryDto> {
+    const employee = await this.userModel
+      .findById(employeeId)
+      .select('baseSalary');
+    if (!employee) {
+      throw new NotFoundException('Employee not found');
+    }
+
+    const basicSalary = employee.baseSalary;
+    if (!basicSalary) {
+      throw new BadRequestException('Employee base salary not set');
+    }
+
+    const maxAdvancePercentage = 50;
+    const maxAdvanceAmount = (basicSalary * maxAdvancePercentage) / 100;
+
+    // Get all days in the month - only for the specified month
+    const startDate = new Date(year, month - 1, 1); // First day of month
+    const endDate = new Date(year, month, 0); // Last day of month
+    const daysInMonth = endDate.getDate();
+
+    const dailyAdvances: DailyAdvanceDto[] = [];
+    let workingDaysCount = 0;
+    let lastNonWeekendAmount = 0;
+
+    // Calculate available advance for each day
+    for (let day = 1; day <= daysInMonth; day++) {
+      const currentDate = new Date(year, month - 1, day);
+      const isWeekend =
+        currentDate.getDay() === 0 || currentDate.getDay() === 6;
+      const isHoliday = await this.isHoliday(currentDate);
+
+      let currentAmount;
+
+      if (!isWeekend && !isHoliday) {
+        workingDaysCount++;
+        // Calculate total accrual up to this working day
+        const runningTotal = (maxAdvanceAmount / 22) * workingDaysCount;
+
+        // Cap at maxAdvanceAmount and round to nearest 100
+        const cappedAmount = Math.min(runningTotal, maxAdvanceAmount);
+        currentAmount = Math.floor(cappedAmount / 100) * 100;
+        lastNonWeekendAmount = currentAmount;
+      } else {
+        currentAmount = lastNonWeekendAmount;
+      }
+
+      dailyAdvances.push({
+        date: currentDate.toISOString().split('T')[0],
+        availableAmount: currentAmount,
+        percentageOfSalary: (currentAmount / basicSalary) * 100,
+        isWeekend,
+        isHoliday,
+      });
+    }
+
+    // Filter out any dates from previous month
+    const filteredAdvances = dailyAdvances.filter(
+      (advance) => new Date(advance.date).getMonth() === month - 1,
+    );
+
+    // Get today's date and find today's available amount
+    const today = new Date();
+
+    // Find the last non-weekend day up to today
+    let lastAvailableAmount = 0;
+    for (let i = filteredAdvances.length - 1; i >= 0; i--) {
+      const advance = filteredAdvances[i];
+      const advanceDate = new Date(advance.date);
+      if (advanceDate <= today && !advance.isWeekend && !advance.isHoliday) {
+        lastAvailableAmount = advance.availableAmount;
+        break;
+      }
+    }
+
+    return {
+      month: startDate.toLocaleString('default', { month: 'long' }),
+      year,
+      basicSalary,
+      maxAdvancePercentage,
+      maxAdvanceAmount,
+      dailyAdvances: filteredAdvances,
+      totalAvailableToday: lastAvailableAmount,
+      previousAdvances: [],
+    };
+  }
+
+  private calculateWorkingDays(startDate: Date, endDate: Date): number {
+    let workingDays = 0;
+    const currentDate = new Date(startDate);
+
+    while (currentDate <= endDate) {
+      const dayOfWeek = currentDate.getDay();
+      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
+        // Not weekend
+        workingDays++;
+      }
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+
+    return workingDays;
+  }
+
+  private calculateNextPayday(): Date {
+    const today = new Date();
+    const currentMonth = today.getMonth();
+    const currentYear = today.getFullYear();
+
+    // Payday is 25th of each month
+    let nextPayday = new Date(currentYear, currentMonth, 25);
+
+    // If we're past the 25th, next payday is 25th of next month
+    if (today.getDate() > 25) {
+      nextPayday = new Date(currentYear, currentMonth + 1, 25);
+    }
+
+    return nextPayday;
+  }
+
+  private async isHoliday(date: Date): Promise<boolean> {
+    // Implement holiday checking logic here
+    // This could involve checking against a holiday database or API
+    return false;
   }
 }
