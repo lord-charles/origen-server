@@ -164,7 +164,9 @@ export class AdvanceService {
       pending: ['approved', 'declined'],
       approved: ['disbursed'],
       declined: [],
-      disbursed: [],
+      disbursed: ['repaying'],
+      repaying: ['repaid'],
+      repaid: [],
     };
 
     if (!validTransitions[currentStatus].includes(newStatus)) {
