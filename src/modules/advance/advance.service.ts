@@ -228,19 +228,33 @@ export class AdvanceService {
 
     // Get current date and calculate working days
     const today = new Date();
-    const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-    const workingDays = this.calculateWorkingDays(startOfMonth, today);
+    const currentMonth = today.getMonth() + 1;
+    const currentYear = today.getFullYear();
 
-    // Calculate daily accrual rate
-    const totalWorkingDaysInMonth = 22; // Average working days per month
-    const dailyAccrualRate = maxAdvancePercentage / totalWorkingDaysInMonth;
-    const currentAdvancePercentage = dailyAccrualRate * workingDays;
+    let workingDaysCount = 0;
+    let lastNonWeekendAmount = 0;
+    let availableAdvance = 0;
 
-    // Calculate available advance
-    const availableAdvance = Math.max(
-      0,
-      Math.min((basicSalary * currentAdvancePercentage) / 100, maxAdvance),
-    );
+    // Calculate up to today's date
+    for (let day = 1; day <= today.getDate(); day++) {
+      const currentDate = new Date(currentYear, currentMonth - 1, day);
+      const isWeekend =
+        currentDate.getDay() === 0 || currentDate.getDay() === 6;
+      const isHoliday = await this.isHoliday(currentDate);
+
+      if (!isWeekend && !isHoliday) {
+        workingDaysCount++;
+        // Calculate total accrual up to this working day
+        const runningTotal = (maxAdvance / 22) * workingDaysCount;
+
+        // Cap at maxAdvanceAmount and round to nearest 100
+        const cappedAmount = Math.min(runningTotal, maxAdvance);
+        availableAdvance = Math.floor(cappedAmount / 100) * 100;
+        lastNonWeekendAmount = availableAdvance;
+      } else {
+        availableAdvance = lastNonWeekendAmount;
+      }
+    }
 
     // Get advance history metrics
     const advances = await this.advanceModel.find({
@@ -261,18 +275,12 @@ export class AdvanceService {
     // Calculate next payday (25th of current or next month)
     const nextPayday = this.calculateNextPayday();
 
-    // Adjust available advance based on current repayment balance
-    const adjustedAvailableAdvance = Math.max(
-      0,
-      Math.min(availableAdvance - repaymentBalance, maxAdvance),
-    );
-
-    // Return calculated advance details
+    // Return calculated advance details without adjusting for repayment balance
     return {
-      availableAdvance: Math.floor(adjustedAvailableAdvance / 100) * 100, // Round to nearest 100
+      availableAdvance: availableAdvance, // Use the calculated amount directly
       maxAdvance,
       basicSalary,
-      advancePercentage: currentAdvancePercentage,
+      advancePercentage: (availableAdvance / basicSalary) * 100,
       previousAdvances: totalAdvancesReceived,
       totalAmountRepaid,
       repaymentBalance,
