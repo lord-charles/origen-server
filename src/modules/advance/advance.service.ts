@@ -29,7 +29,38 @@ export class AdvanceService {
     employeeId: string,
     createAdvanceDto: CreateAdvanceDto,
   ): Promise<Advance> {
-    // Calculate advance details
+    // 1. Check if employee exists and has base salary set
+    const employee = await this.userModel
+      .findById(employeeId)
+      .select('baseSalary');
+    if (!employee) {
+      throw new NotFoundException('Employee not found');
+    }
+    if (!employee.baseSalary) {
+      throw new BadRequestException('Employee base salary not set');
+    }
+
+    // 2. Check if employee has any pending or approved advances
+    const existingAdvances = await this.advanceModel.find({
+      employee: new Types.ObjectId(employeeId),
+      status: { $in: ['pending', 'approved', 'disbursed'] },
+    });
+
+    if (existingAdvances.length > 0) {
+      throw new BadRequestException(
+        'Cannot request new advance while having pending, approved, or ongoing advances',
+      );
+    }
+
+    // 3. Validate repayment period
+    const MAX_REPAYMENT_PERIOD = 12; // Maximum 12 months repayment period
+    if (createAdvanceDto.repaymentPeriod > MAX_REPAYMENT_PERIOD) {
+      throw new BadRequestException(
+        `Repayment period cannot exceed ${MAX_REPAYMENT_PERIOD} months`,
+      );
+    }
+
+    // 5. Calculate advance details
     const interestRate = 5; // 5% interest rate for advances
     const amount = createAdvanceDto.amount;
     const repaymentPeriod = createAdvanceDto.repaymentPeriod;
@@ -39,6 +70,14 @@ export class AdvanceService {
     const totalRepayment = amount + totalInterest;
     const installmentAmount = totalRepayment / repaymentPeriod;
 
+    // 6. Check if monthly installment is within reasonable limit (e.g., not more than 50% of monthly salary)
+    if (installmentAmount > employee.baseSalary * 0.5) {
+      throw new BadRequestException(
+        'Monthly repayment amount exceeds 50% of monthly salary',
+      );
+    }
+
+    // Create and save the advance
     const advance = new this.advanceModel({
       ...createAdvanceDto,
       employee: new Types.ObjectId(employeeId),
@@ -377,22 +416,6 @@ export class AdvanceService {
       totalAvailableToday: lastAvailableAmount,
       previousAdvances: [],
     };
-  }
-
-  private calculateWorkingDays(startDate: Date, endDate: Date): number {
-    let workingDays = 0;
-    const currentDate = new Date(startDate);
-
-    while (currentDate <= endDate) {
-      const dayOfWeek = currentDate.getDay();
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-        // Not weekend
-        workingDays++;
-      }
-      currentDate.setDate(currentDate.getDate() + 1);
-    }
-
-    return workingDays;
   }
 
   private calculateNextPayday(): Date {
