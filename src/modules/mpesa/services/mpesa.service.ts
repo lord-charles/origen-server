@@ -8,6 +8,7 @@ import {
   MpesaTransactionDocument,
 } from '../schemas/mpesa.schema';
 import { InitiateB2CDto, InitiateC2BDto } from '../dtos/mpesa.dto';
+import { Types } from 'mongoose';
 
 @Injectable()
 export class MpesaService {
@@ -313,15 +314,6 @@ export class MpesaService {
     } = callbackData;
 
     try {
-      // Find the transaction
-      const transaction = await this.mpesaModel.findOne({
-        originatorConversationId: OriginatorConversationID,
-      });
-
-      if (!transaction) {
-        throw new Error('Transaction not found');
-      }
-
       // Create a map of result parameters
       const resultParamsMap = new Map(
         ResultParameters?.ResultParameter?.map((param: any) => [
@@ -330,18 +322,26 @@ export class MpesaService {
         ]) || [],
       );
 
-      // Base update data
-      const updateData: any = {
+      // Extract phone number from ReceiverPartyPublicName
+      const receiverPartyPublicName = resultParamsMap.get(
+        'ReceiverPartyPublicName',
+      );
+      const phoneNumber = receiverPartyPublicName?.split(' ')[0]; // Gets "0740315545" from "0740315545 - Charles Mihunyo Mwaniki"
+
+      // Common transaction data
+      const transactionData = {
+        transactionType: 'b2c',
+        status: ResultCode === 0 ? 'completed' : 'failed',
         resultCode: ResultCode.toString(),
         resultDesc: ResultDesc,
         callbackStatus: 'processed',
-        status: ResultCode === 0 ? 'completed' : 'failed',
+        originatorConversationId: OriginatorConversationID,
         conversationId: ConversationID,
         transactionId: TransactionID,
-        // B2C specific fields
+        phoneNumber: phoneNumber,
         confirmedAmount: resultParamsMap.get('TransactionAmount'),
         mpesaReceiptNumber: resultParamsMap.get('TransactionReceipt'),
-        receiverPartyPublicName: resultParamsMap.get('ReceiverPartyPublicName'),
+        receiverPartyPublicName: receiverPartyPublicName,
         transactionCompletedDateTime: resultParamsMap.get(
           'TransactionCompletedDateTime',
         ),
@@ -359,12 +359,43 @@ export class MpesaService {
         ),
       };
 
-      // Update the transaction
-      const updatedTransaction = await this.mpesaModel.findByIdAndUpdate(
-        transaction._id,
-        updateData,
-        { new: true },
-      );
+      // Try to find existing transaction
+      let transaction = await this.mpesaModel.findOne({
+        originatorConversationId: OriginatorConversationID,
+      });
+
+      let updatedTransaction;
+      if (transaction) {
+        // Update existing transaction
+        updatedTransaction = await this.mpesaModel.findByIdAndUpdate(
+          transaction._id,
+          transactionData,
+          { new: true },
+        );
+      } else {
+        // Create new transaction
+        // Note: For B2C, we need to get the employee ID from the uniqueId in ReferenceData
+        // This was set during B2C initiation
+        const referenceData = callbackData.Result?.ReferenceData?.ReferenceItem;
+        let employeeId;
+        if (referenceData?.Key === 'QueueTimeoutURL' && referenceData?.Value) {
+          // Extract employee ID from the URL if it was included during initiation
+          // You might need to adjust this based on how you're passing the employee ID
+          employeeId = referenceData.Value.split('/').pop();
+        }
+
+        if (!employeeId) {
+          // If no employee ID found, use a default or system account
+          // You might want to adjust this based on your requirements
+          employeeId = '000000000000000000000000'; // Default system account ID
+        }
+
+        updatedTransaction = await this.mpesaModel.create({
+          ...transactionData,
+          employee: new Types.ObjectId(employeeId),
+          amount: transactionData.confirmedAmount, // Set amount from confirmed amount
+        });
+      }
 
       return {
         success: true,
