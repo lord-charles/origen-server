@@ -325,8 +325,8 @@ export class MpesaService {
       // Extract phone number from ReceiverPartyPublicName
       const receiverPartyPublicName = resultParamsMap.get(
         'ReceiverPartyPublicName',
-      );
-      const phoneNumber = receiverPartyPublicName?.split(' ')[0]; // Gets "0740315545" from "0740315545 - Charles Mihunyo Mwaniki"
+      ) as string;
+      const phoneNumber = receiverPartyPublicName.split(' ')[0]; // Gets "0740315545" from "0740315545 - Charles Mihunyo Mwaniki"
 
       // Common transaction data
       const transactionData = {
