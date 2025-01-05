@@ -33,15 +33,36 @@ export class TransactionService {
       const queries: any[] = [];
 
       // Add MPESA transactions
-      const mpesaTransactions = this.mpesaModel
-        .find({ employee: userId })
-        .select(
-          'transactionType amount phoneNumber status createdAt accountReference',
-        )
-        .lean()
-        .exec();
+      const mpesaQuery = {
+        employee: new Types.ObjectId(userId),
+      };
 
-      queries.push(mpesaTransactions);
+      this.logger.debug('MPESA Query:', JSON.stringify(mpesaQuery, null, 2));
+
+      const mpesaTransactions = this.mpesaModel
+        .find(mpesaQuery)
+        .select(
+          'transactionType amount phoneNumber status createdAt accountReference ' +
+            'callbackStatus mpesaReceiptNumber transactionId receiverPartyPublicName ' +
+            'transactionCompletedDateTime',
+        )
+        .lean();
+
+      this.logger.debug(`Fetching MPESA transactions for user: ${userId}`);
+      const mpesaResults = await mpesaTransactions.exec();
+      this.logger.debug(
+        'Raw MPESA Results:',
+        JSON.stringify(mpesaResults, null, 2),
+      );
+
+      // Log each transaction type we found
+      mpesaResults.forEach((tx) => {
+        this.logger.debug(
+          `Found transaction type: ${tx.transactionType}, status: ${tx.status}, id: ${tx._id}`,
+        );
+      });
+
+      queries.push(Promise.resolve(mpesaResults));
 
       // Add Wallet transactions
       const walletTransactions = this.walletModel
