@@ -26,25 +26,26 @@ export class AuthService {
   ) {}
 
   async register(createUserDto: CreateUserDto): Promise<AuthResponse> {
-    // Check if user exists
-    const existingUser = await this.userService.findByNationalId(
-      createUserDto.nationalId,
-    );
-    if (existingUser) {
-      throw new ConflictException('User with this National ID already exists');
+    try {
+      // Check if user exists using the UserService's register method which already checks for duplicates
+      const user = await this.userService.register(createUserDto);
+
+      // Generate token
+      const token = await this.generateToken(user);
+
+      // Return user data (excluding sensitive information) and token
+      return {
+        user: this.sanitizeUser(user),
+        token: token.token,
+      };
+    } catch (error) {
+      // Re-throw BadRequestException for duplicate users
+      if (error instanceof BadRequestException) {
+        throw error;
+      }
+      // Handle other errors
+      throw new Error(`Registration failed: ${error.message}`);
     }
-
-    // Create user with the provided DTO (let UserService handle PIN hashing)
-    const user = await this.userService.register(createUserDto);
-
-    // Generate token
-    const token = await this.generateToken(user);
-
-    // Return user data (excluding sensitive information) and token
-    return {
-      user: this.sanitizeUser(user),
-      token: token.token,
-    };
   }
 
   async login(loginUserDto: LoginUserDto): Promise<AuthResponse> {
