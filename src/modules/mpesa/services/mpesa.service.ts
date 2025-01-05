@@ -9,7 +9,7 @@ import {
 } from '../schemas/mpesa.schema';
 import { InitiateB2CDto, InitiateC2BDto } from '../dtos/mpesa.dto';
 import { Types } from 'mongoose';
-import { Employee, EmployeeDocument } from '../schemas/employee.schema'; // Import Employee schema
+import { User, UserDocument } from 'src/modules/auth/schemas/user.schema';
 
 @Injectable()
 export class MpesaService {
@@ -29,8 +29,8 @@ export class MpesaService {
   constructor(
     @InjectModel(MpesaTransaction.name)
     private mpesaModel: Model<MpesaTransactionDocument>,
-    @InjectModel(Employee.name) // Inject Employee model
-    private employeeModel: Model<EmployeeDocument>,
+    @InjectModel(User.name)
+    private employeeModel: Model<UserDocument>,
     private configService: ConfigService,
   ) {
     this.baseUrl = this.configService.get<string>('MPESA_BASE_URL');
@@ -251,7 +251,7 @@ export class MpesaService {
         throw new Error('Transaction not found');
       }
 
-      // Base update data
+      // Base update dataPublicName
       const updateData: any = {
         resultCode: ResultCode.toString(),
         resultDesc: ResultDesc,
