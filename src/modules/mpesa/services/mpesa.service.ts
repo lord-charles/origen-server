@@ -119,9 +119,9 @@ export class MpesaService {
         JSON.stringify(response.data, null, 2),
       );
 
-      // Create transaction record with response details
+      // For C2B, always use the authenticated user's ID
       const transaction = await this.mpesaModel.create({
-        employee: employeeId,
+        employee: employeeId, // Use the authenticated user's ID for C2B
         transactionType: 'paybill',
         amount: dto.amount,
         phoneNumber: dto.phoneNumber,
@@ -169,15 +169,16 @@ export class MpesaService {
         ? '+254' + dto.phoneNumber.slice(1)
         : dto.phoneNumber;
 
-      // Try to find user by phone number
+      // For B2C, always try to find user by phone number
       const user = await this.employeeModel.findOne({
         phoneNumber: formattedPhoneNumber,
       });
 
-      // Use found user's ID or fallback to default ID
-      const targetEmployeeId = user
-        ? user._id.toString()
-        : '6776b0221dfd812925ac8b56';
+      if (!user) {
+        throw new Error(
+          `No user found with phone number: ${formattedPhoneNumber}`,
+        );
+      }
 
       const accessToken = await this.getAccessToken();
       const uniqueId = new Date()
@@ -208,9 +209,9 @@ export class MpesaService {
         },
       );
 
-      // Create transaction record with the found user ID or default ID
+      // For B2C, always use the user ID found by phone number
       const transaction = await this.mpesaModel.create({
-        employee: targetEmployeeId,
+        employee: user._id, // Always use the found user's ID for B2C
         transactionType: 'b2c',
         amount: dto.amount,
         phoneNumber: dto.phoneNumber,
@@ -223,7 +224,7 @@ export class MpesaService {
         message: 'B2C payment initiated successfully',
         data: {
           transactionId: transaction._id,
-          employeeId: targetEmployeeId,
+          employeeId: user._id,
           amount: dto.amount,
           phoneNumber: dto.phoneNumber,
           status: transaction.status,
