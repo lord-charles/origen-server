@@ -47,7 +47,7 @@ class BankDetailsDto {
 class MpesaDetailsDto {
   @ApiProperty({
     description: 'Phone number linked to Mpesa',
-    example: '+254712345678',
+    example: '254712345678',
     required: false,
   })
   @IsOptional()
@@ -74,7 +74,7 @@ class EmergencyContactDto {
 
   @ApiProperty({
     description: 'Primary phone number',
-    example: '+254712345678',
+    example: '254712345678',
   })
   @IsNotEmpty()
   @IsString()
@@ -82,7 +82,7 @@ class EmergencyContactDto {
 
   @ApiProperty({
     description: 'Alternative phone number (if any)',
-    example: '+254723456789',
+    example: '254723456789',
     required: false,
   })
   @IsOptional()
@@ -121,7 +121,7 @@ export class CreateUserDto {
 
   @ApiProperty({
     description: 'Phone number for Mpesa transactions',
-    example: '+254712345678',
+    example: '254712345678',
   })
   @IsNotEmpty()
   @IsString()
