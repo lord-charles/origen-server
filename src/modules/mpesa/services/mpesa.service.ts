@@ -10,6 +10,7 @@ import {
 import { InitiateB2CDto, InitiateC2BDto } from '../dtos/mpesa.dto';
 import { Types } from 'mongoose';
 import { User, UserDocument } from 'src/modules/auth/schemas/user.schema';
+import { HttpException, HttpStatus } from '@nestjs/common';
 
 @Injectable()
 export class MpesaService {
@@ -175,8 +176,18 @@ export class MpesaService {
       });
 
       if (!user) {
-        throw new Error(
-          `No user found with phone number: ${formattedPhoneNumber}`,
+        this.logger.warn(
+          `B2C payment failed: No user found with phone number ${formattedPhoneNumber}`,
+        );
+        throw new HttpException(
+          {
+            success: false,
+            status: HttpStatus.NOT_FOUND,
+            message: 'B2C payment initiation failed',
+            error: 'User not found',
+            details: `No registered user found with phone number ${formattedPhoneNumber}. Please verify the phone number or contact support.`,
+          },
+          HttpStatus.NOT_FOUND,
         );
       }
 
@@ -211,7 +222,7 @@ export class MpesaService {
 
       // For B2C, always use the user ID found by phone number
       const transaction = await this.mpesaModel.create({
-        employee: user._id, // Always use the found user's ID for B2C
+        employee: user._id,
         transactionType: 'b2c',
         amount: dto.amount,
         phoneNumber: dto.phoneNumber,
@@ -221,6 +232,7 @@ export class MpesaService {
 
       return {
         success: true,
+        status: HttpStatus.OK,
         message: 'B2C payment initiated successfully',
         data: {
           transactionId: transaction._id,
@@ -231,8 +243,24 @@ export class MpesaService {
         },
       };
     } catch (error) {
+      // If it's already a HttpException, rethrow it
+      if (error instanceof HttpException) {
+        throw error;
+      }
+
+      // Handle other errors
       this.logger.error('Error initiating B2C payment:', error);
-      throw new Error(`Failed to initiate B2C payment: ${error.message}`);
+      throw new HttpException(
+        {
+          success: false,
+          status: HttpStatus.INTERNAL_SERVER_ERROR,
+          message: 'B2C payment initiation failed',
+          error: 'Internal server error',
+          details:
+            'An unexpected error occurred while processing your request. Please try again later.',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
     }
   }
 
