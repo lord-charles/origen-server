@@ -154,6 +154,70 @@ export class MpesaTransaction {
     default: 'pending',
   })
   callbackStatus?: string;
+
+  // B2C specific fields
+  @ApiProperty({
+    description: 'Originator Conversation ID for B2C',
+    example: '559a-4b4c-b02d-a3bbc8ee159936448751',
+  })
+  @Prop({ type: String })
+  originatorConversationId?: string;
+
+  @ApiProperty({
+    description: 'Conversation ID for B2C',
+    example: 'AG_20250105_204067852fd5146ff1d0',
+  })
+  @Prop({ type: String })
+  conversationId?: string;
+
+  @ApiProperty({
+    description: 'Transaction ID from Mpesa',
+    example: 'TA551Z3O1L',
+  })
+  @Prop({ type: String })
+  transactionId?: string;
+
+  @ApiProperty({
+    description: 'Receiver party public name',
+    example: '0740315545 - Charles Mihunyo Mwaniki',
+  })
+  @Prop({ type: String })
+  receiverPartyPublicName?: string;
+
+  @ApiProperty({
+    description: 'Transaction completed date time',
+    example: '05.01.2025 11:47:57',
+  })
+  @Prop({ type: String })
+  transactionCompletedDateTime?: string;
+
+  @ApiProperty({
+    description: 'B2C utility account available funds',
+    example: 54654,
+  })
+  @Prop({ type: Number })
+  b2cUtilityAccountFunds?: number;
+
+  @ApiProperty({
+    description: 'B2C working account available funds',
+    example: 0,
+  })
+  @Prop({ type: Number })
+  b2cWorkingAccountFunds?: number;
+
+  @ApiProperty({
+    description: 'B2C charges paid account available funds',
+    example: 0,
+  })
+  @Prop({ type: Number })
+  b2cChargesPaidAccountFunds?: number;
+
+  @ApiProperty({
+    description: 'Whether B2C recipient is registered customer',
+    example: 'Y',
+  })
+  @Prop({ type: String })
+  b2cRecipientIsRegistered?: string;
 }
 
 export const MpesaTransactionSchema =

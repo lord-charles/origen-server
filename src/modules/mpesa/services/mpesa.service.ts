@@ -214,11 +214,20 @@ export class MpesaService {
       JSON.stringify(callbackData, null, 2),
     );
 
-    const { Body } = callbackData;
-    if (!Body?.stkCallback) {
-      throw new Error('Invalid callback data structure');
+    // Handle C2B callback
+    if (callbackData.Body?.stkCallback) {
+      return this.handleC2BCallback(callbackData);
     }
+    // Handle B2C callback
+    else if (callbackData.Result) {
+      return this.handleB2CCallback(callbackData);
+    } else {
+      throw new Error('Unknown callback type');
+    }
+  }
 
+  private async handleC2BCallback(callbackData: any) {
+    const { Body } = callbackData;
     const {
       MerchantRequestID,
       CheckoutRequestID,
@@ -273,7 +282,7 @@ export class MpesaService {
 
       return {
         success: true,
-        message: 'Callback processed successfully',
+        message: 'C2B callback processed successfully',
         data: {
           transactionId: updatedTransaction._id,
           status: updatedTransaction.status,
@@ -285,8 +294,95 @@ export class MpesaService {
         },
       };
     } catch (error) {
-      this.logger.error('Error processing callback:', error);
-      throw new Error(`Failed to process callback: ${error.message}`);
+      this.logger.error('Error processing C2B callback:', error);
+      throw new Error(`Failed to process C2B callback: ${error.message}`);
+    }
+  }
+
+  private async handleB2CCallback(callbackData: any) {
+    const {
+      Result: {
+        ResultType,
+        ResultCode,
+        ResultDesc,
+        OriginatorConversationID,
+        ConversationID,
+        TransactionID,
+        ResultParameters,
+      },
+    } = callbackData;
+
+    try {
+      // Find the transaction
+      const transaction = await this.mpesaModel.findOne({
+        originatorConversationId: OriginatorConversationID,
+      });
+
+      if (!transaction) {
+        throw new Error('Transaction not found');
+      }
+
+      // Create a map of result parameters
+      const resultParamsMap = new Map(
+        ResultParameters?.ResultParameter?.map((param: any) => [
+          param.Key,
+          param.Value,
+        ]) || [],
+      );
+
+      // Base update data
+      const updateData: any = {
+        resultCode: ResultCode.toString(),
+        resultDesc: ResultDesc,
+        callbackStatus: 'processed',
+        status: ResultCode === 0 ? 'completed' : 'failed',
+        conversationId: ConversationID,
+        transactionId: TransactionID,
+        // B2C specific fields
+        confirmedAmount: resultParamsMap.get('TransactionAmount'),
+        mpesaReceiptNumber: resultParamsMap.get('TransactionReceipt'),
+        receiverPartyPublicName: resultParamsMap.get('ReceiverPartyPublicName'),
+        transactionCompletedDateTime: resultParamsMap.get(
+          'TransactionCompletedDateTime',
+        ),
+        b2cUtilityAccountFunds: resultParamsMap.get(
+          'B2CUtilityAccountAvailableFunds',
+        ),
+        b2cWorkingAccountFunds: resultParamsMap.get(
+          'B2CWorkingAccountAvailableFunds',
+        ),
+        b2cChargesPaidAccountFunds: resultParamsMap.get(
+          'B2CChargesPaidAccountAvailableFunds',
+        ),
+        b2cRecipientIsRegistered: resultParamsMap.get(
+          'B2CRecipientIsRegisteredCustomer',
+        ),
+      };
+
+      // Update the transaction
+      const updatedTransaction = await this.mpesaModel.findByIdAndUpdate(
+        transaction._id,
+        updateData,
+        { new: true },
+      );
+
+      return {
+        success: true,
+        message: 'B2C callback processed successfully',
+        data: {
+          transactionId: updatedTransaction._id,
+          status: updatedTransaction.status,
+          mpesaReceiptNumber: updatedTransaction.mpesaReceiptNumber,
+          resultDesc: updatedTransaction.resultDesc,
+          amount: updatedTransaction.confirmedAmount,
+          transactionCompletedDateTime:
+            updatedTransaction.transactionCompletedDateTime,
+          receiverPartyPublicName: updatedTransaction.receiverPartyPublicName,
+        },
+      };
+    } catch (error) {
+      this.logger.error('Error processing B2C callback:', error);
+      throw new Error(`Failed to process B2C callback: ${error.message}`);
     }
   }
 
