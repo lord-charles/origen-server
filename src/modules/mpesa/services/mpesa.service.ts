@@ -9,6 +9,7 @@ import {
 } from '../schemas/mpesa.schema';
 import { InitiateB2CDto, InitiateC2BDto } from '../dtos/mpesa.dto';
 import { Types } from 'mongoose';
+import { Employee, EmployeeDocument } from '../schemas/employee.schema'; // Import Employee schema
 
 @Injectable()
 export class MpesaService {
@@ -28,6 +29,8 @@ export class MpesaService {
   constructor(
     @InjectModel(MpesaTransaction.name)
     private mpesaModel: Model<MpesaTransactionDocument>,
+    @InjectModel(Employee.name) // Inject Employee model
+    private employeeModel: Model<EmployeeDocument>,
     private configService: ConfigService,
   ) {
     this.baseUrl = this.configService.get<string>('MPESA_BASE_URL');
@@ -327,6 +330,7 @@ export class MpesaService {
         'ReceiverPartyPublicName',
       ) as string;
       const phoneNumber = receiverPartyPublicName.split(' ')[0]; // Gets "0740315545" from "0740315545 - Charles Mihunyo Mwaniki"
+      console.log('receiverPartyphoneNumber', phoneNumber);
 
       // Common transaction data
       const transactionData = {
@@ -374,20 +378,29 @@ export class MpesaService {
         );
       } else {
         // Create new transaction
-        // Note: For B2C, we need to get the employee ID from the uniqueId in ReferenceData
-        // This was set during B2C initiation
+        // First try to get employee ID from reference data
         const referenceData = callbackData.Result?.ReferenceData?.ReferenceItem;
         let employeeId;
         if (referenceData?.Key === 'QueueTimeoutURL' && referenceData?.Value) {
-          // Extract employee ID from the URL if it was included during initiation
-          // You might need to adjust this based on how you're passing the employee ID
           employeeId = referenceData.Value.split('/').pop();
         }
 
+        // If no employee ID from reference, try to find employee by phone number
         if (!employeeId) {
-          // If no employee ID found, use a default or system account
-          // You might want to adjust this based on your requirements
-          employeeId = '000000000000000000000000'; // Default system account ID
+          try {
+            const employee = await this.employeeModel.findOne({
+              phoneNumber: phoneNumber,
+            });
+            if (employee) {
+              employeeId = employee._id.toString();
+            } else {
+              // If no employee found, use a default ID
+              employeeId = '65983c1f3df8b0f24a384ac4'; // Default system account ID
+            }
+          } catch (error) {
+            this.logger.error('Error finding employee by phone number:', error);
+            employeeId = '65983c1f3df8b0f24a384ac4'; // Fallback to default ID on error
+          }
         }
 
         updatedTransaction = await this.mpesaModel.create({
