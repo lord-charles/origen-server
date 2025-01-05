@@ -304,7 +304,10 @@ export class MpesaService {
   }
 
   private async handleB2CCallback(callbackData: any) {
-    console.log('Received B2C callback data:', JSON.stringify(callbackData, null, 2));
+    console.log(
+      'Received B2C callback data:',
+      JSON.stringify(callbackData, null, 2),
+    );
 
     const {
       Result: {
@@ -331,23 +334,36 @@ export class MpesaService {
       const receiverPartyPublicName = resultParamsMap.get(
         'ReceiverPartyPublicName',
       ) as string;
-      const phoneNumber = receiverPartyPublicName.split(' ')[0]; // Gets "0740315545" from "0740315545 - Charles Mihunyo Mwaniki"
-      console.log('receiverPartyphoneNumber', phoneNumber);
+      const phoneNumber = receiverPartyPublicName.split(' ')[0];
 
-      // Common transaction data
-      const transactionData = {
+      // Find existing transaction by originatorConversationId
+      const existingTransaction = await this.mpesaModel.findOne({
+        $or: [
+          { originatorConversationId: OriginatorConversationID },
+          { phoneNumber: { $in: [phoneNumber, `254${phoneNumber.slice(1)}`] } },
+        ],
         transactionType: 'b2c',
-        status: ResultCode === 0 ? 'completed' : 'failed',
+        status: 'pending',
+      });
+
+      if (!existingTransaction) {
+        throw new Error(
+          `No pending B2C transaction found for conversation ID: ${OriginatorConversationID} or phone: ${phoneNumber}`,
+        );
+      }
+
+      // Update transaction data
+      const updateData = {
+        status: ResultCode === '0' ? 'completed' : 'failed',
         resultCode: ResultCode.toString(),
         resultDesc: ResultDesc,
         callbackStatus: 'processed',
         originatorConversationId: OriginatorConversationID,
         conversationId: ConversationID,
         transactionId: TransactionID,
-        phoneNumber: phoneNumber,
+        mpesaReceiptNumber: TransactionID,
         confirmedAmount: resultParamsMap.get('TransactionAmount'),
-        mpesaReceiptNumber: resultParamsMap.get('TransactionReceipt'),
-        receiverPartyPublicName: receiverPartyPublicName,
+        receiverPartyPublicName,
         transactionCompletedDateTime: resultParamsMap.get(
           'TransactionCompletedDateTime',
         ),
@@ -365,103 +381,17 @@ export class MpesaService {
         ),
       };
 
-      // Try to find existing transaction
-      let transaction = await this.mpesaModel.findOne({
-        originatorConversationId: OriginatorConversationID,
-      });
-
-      let updatedTransaction;
-      if (transaction) {
-        // Update existing transaction
-        updatedTransaction = await this.mpesaModel.findByIdAndUpdate(
-          transaction._id,
-          transactionData,
-          { new: true },
-        );
-      } else {
-        // Create new transaction
-        // First try to get employee ID from reference data
-        const referenceData = callbackData.Result?.ReferenceData?.ReferenceItem;
-        let employeeId;
-        if (referenceData?.Key === 'QueueTimeoutURL' && referenceData?.Value) {
-          console.log('Reference data found:', referenceData);
-          const urlParts = referenceData.Value.split('/');
-          console.log('URL parts:', urlParts);
-          const lastPart = urlParts[urlParts.length - 1];
-          if (Types.ObjectId.isValid(lastPart)) {
-            employeeId = lastPart;
-            console.log('Using employee ID from reference:', employeeId);
-          } else {
-            console.log('Invalid ID in reference data:', lastPart);
-          }
-        }
-
-        // If no employee ID from reference, try to find employee by phone number
-        if (!employeeId) {
-          try {
-            // Convert phone number to international format if it starts with 0
-            const formattedPhoneNumber = phoneNumber.startsWith('0')
-              ? '+254' + phoneNumber.slice(1)
-              : phoneNumber;
-
-            console.log(
-              'Looking up user with phone number:',
-              formattedPhoneNumber,
-            );
-            const employee = await this.employeeModel.findOne({
-              phoneNumber: formattedPhoneNumber,
-            });
-            console.log('Found employee:', employee);
-
-            if (employee) {
-              employeeId = employee._id.toString();
-              console.log('Using employee ID:', employeeId);
-            } else {
-              // If no employee found, use a default ID that exists in your database
-              employeeId = '6776b0221dfd812925ac8b56';
-              console.log('No employee found, using default ID:', employeeId);
-            }
-          } catch (error) {
-            this.logger.error('Error finding employee by phone number:', error);
-            employeeId = '6776b0221dfd812925ac8b56';
-            console.log('Error occurred, using fallback ID:', employeeId);
-          }
-        }
-
-        console.log(
-          'Final employeeId before validation:',
-          employeeId,
-          'Type:',
-          typeof employeeId,
-        );
-
-        // Validate that employeeId is a valid ObjectId before using it
-        if (!Types.ObjectId.isValid(employeeId)) {
-          this.logger.error('Invalid ObjectId:', employeeId);
-          employeeId = '6776b0221dfd812925ac8b56';
-          console.log('Invalid ObjectId, using fallback ID:', employeeId);
-        }
-
-        updatedTransaction = await this.mpesaModel.create({
-          ...transactionData,
-          employee: new Types.ObjectId(employeeId),
-          amount: transactionData.confirmedAmount,
-        });
-      }
+      // Update the existing transaction
+      const updatedTransaction = await this.mpesaModel.findByIdAndUpdate(
+        existingTransaction._id,
+        updateData,
+        { new: true },
+      );
 
       return {
         success: true,
         message: 'B2C callback processed successfully',
-        data: {
-          transactionId: updatedTransaction._id,
-          status: updatedTransaction.status,
-          mpesaReceiptNumber: updatedTransaction.mpesaReceiptNumber,
-          resultDesc: updatedTransaction.resultDesc,
-          amount: updatedTransaction.confirmedAmount,
-          transactionCompletedDateTime:
-            updatedTransaction.transactionCompletedDateTime,
-          receiverPartyPublicName: updatedTransaction.receiverPartyPublicName,
-        },
+        data: updatedTransaction,
       };
     } catch (error) {
       this.logger.error('Error processing B2C callback:', error);
