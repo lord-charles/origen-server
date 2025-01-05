@@ -1,13 +1,13 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { MpesaController } from './controllers/mpesa.controller';
-import { MpesaService } from './services/mpesa.service';
 import {
   MpesaTransaction,
   MpesaTransactionSchema,
 } from './schemas/mpesa.schema';
 import { User, UserSchema } from 'src/modules/auth/schemas/user.schema';
 import { AuthModule } from 'src/modules/auth/auth.module';
+import { MpesaController } from './controllers/mpesa.controller';
+import { MpesaService } from './services/mpesa.service';
 
 @Module({
   imports: [

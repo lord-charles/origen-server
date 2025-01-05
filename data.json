@@ -1,0 +1,70 @@
+[
+  {
+    "key": "loan_config",
+    "type": "loan",
+    "data": {
+      "defaultInterestRate": 12,
+      "minAmount": 5000,
+      "maxAmount": 500000,
+      "minRepaymentPeriod": 6,
+      "maxRepaymentPeriod": 60,
+      "purposes": ["education", "home renovation", "vehicle purchase", "business expansion"],
+      "collateralTypes": ["land title", "vehicle logbook", "bank guarantee"]
+    },
+    "isActive": true,
+    "description": "Loan configuration settings",
+    "updatedBy": "64abc123def4567890ghijk1"
+  },
+  {
+    "key": "wallet_config",
+    "type": "wallet",
+    "data": {
+      "minTransactionAmount": 50,
+      "maxTransactionAmount": 50000,
+      "dailyTransactionLimit": 200000,
+      "monthlyTransactionLimit": 3000000,
+      "transactionFees": {
+        "mpesaWithdrawal": 15,
+        "walletTransfer": 10
+      }
+    },
+    "isActive": true,
+    "description": "Wallet configuration for transactions",
+    "updatedBy": "64abc123def4567890ghijk2"
+  },
+  {
+    "key": "mpesa_config",
+    "type": "mpesa",
+    "data": {
+      "paybillNumber": "123456",
+      "b2cShortcode": "654321",
+      "consumerKey": "b2cConsumerKey",
+      "consumerSecret": "b2cConsumerSecret",
+      "b2cMinAmount": 10,
+      "b2cMaxAmount": 70000,
+      "callbackBaseUrl": "https://example.com/mpesa",
+      "initiatorName": "systemUser",
+      "securityCredential": "EncryptedSecurityCredentialString"
+    },
+    "isActive": true,
+    "description": "M-Pesa B2C configuration for disbursements",
+    "updatedBy": "64abc123def4567890ghijk3"
+  },
+  {
+    "key": "advance_config",
+    "type": "advance",
+    "data": {
+      "advanceDefaultInterestRate": 15,
+      "advanceMinAmount": 1000,
+      "advanceMaxAmount": 50000,
+      "advanceMinRepaymentPeriod": 1,
+      "advanceMaxRepaymentPeriod": 6,
+      "advancePurposes": ["emergency", "travel", "medical expenses"],
+      "maxAdvancePercentage": 50,
+      "maxActiveAdvances": 3
+    },
+    "isActive": true,
+    "description": "Advance salary configuration settings",
+    "updatedBy": "64abc123def4567890ghijk4"
+  }
+]

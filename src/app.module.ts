@@ -6,6 +6,8 @@ import { LoansModule } from './modules/loans/loans.module';
 import { MpesaModule } from './modules/mpesa/mpesa.module';
 import { DatabaseModule } from './database/database.module';
 import { LoggerMiddleware } from './middleware/logger.middleware';
+import { TransactionModule } from './modules/transactions/transaction.module';
+import { SystemConfigModule } from './modules/system-config/system-config.module';
 
 @Module({
   imports: [
@@ -15,6 +17,8 @@ import { LoggerMiddleware } from './middleware/logger.middleware';
     LoansModule,
     MpesaModule,
     DatabaseModule,
+    TransactionModule,
+    SystemConfigModule,
   ],
   controllers: [],
   providers: [],

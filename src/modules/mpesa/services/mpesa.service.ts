@@ -8,7 +8,6 @@ import {
   MpesaTransactionDocument,
 } from '../schemas/mpesa.schema';
 import { InitiateB2CDto, InitiateC2BDto } from '../dtos/mpesa.dto';
-import { Types } from 'mongoose';
 import { User, UserDocument } from 'src/modules/auth/schemas/user.schema';
 import { HttpException, HttpStatus } from '@nestjs/common';
 
