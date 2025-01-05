@@ -354,7 +354,7 @@ export class MpesaService {
 
       // Update transaction data
       const updateData = {
-        status: ResultCode === '0' ? 'completed' : 'failed',
+        status: ResultCode === 0 || ResultCode === '0' ? 'completed' : 'failed',
         resultCode: ResultCode.toString(),
         resultDesc: ResultDesc,
         callbackStatus: 'processed',
