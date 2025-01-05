@@ -109,7 +109,7 @@ export class MpesaService {
         },
         {
           headers: {
-            Authorization: `Bearer ZjTLdPAHAoTilmEAsd5siaqGsXo6`,
+            Authorization: `Bearer CI3gCwJXBCa1pL5D6dLrtBcBh1lG`,
           },
         },
       );
