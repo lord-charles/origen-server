@@ -4,7 +4,7 @@ import { IsNotEmpty, IsNumber, IsString, Min } from 'class-validator';
 export class InitiateC2BDto {
   @ApiProperty({
     description: 'Phone number in format 254XXXXXXXXX',
-    example: '254712345678',
+    example: '254740315545',
   })
   @IsString()
   @IsNotEmpty()
@@ -12,7 +12,7 @@ export class InitiateC2BDto {
 
   @ApiProperty({
     description: 'Amount to be paid in KES',
-    example: 100,
+    example: 1,
   })
   @IsNumber()
   @Min(1)
@@ -30,7 +30,7 @@ export class InitiateC2BDto {
 export class InitiateB2CDto {
   @ApiProperty({
     description: 'Phone number in format 254XXXXXXXXX',
-    example: '254712345678',
+    example: '254740315545',
   })
   @IsString()
   @IsNotEmpty()
@@ -38,7 +38,7 @@ export class InitiateB2CDto {
 
   @ApiProperty({
     description: 'Amount to be paid in KES',
-    example: 100,
+    example: 10,
   })
   @IsNumber()
   @Min(1)

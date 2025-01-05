@@ -22,6 +22,7 @@ export class MpesaService {
   private readonly MPESA_CALLBACK_URL: string;
   private readonly MPESA_STATIC_PASSWORD: string;
   private readonly MPESA_STATIC_TIMESTAMP: string;
+  private readonly MPESA_SECURITY_CREDENTIAL: string;
 
   constructor(
     @InjectModel(MpesaTransaction.name)
@@ -46,6 +47,9 @@ export class MpesaService {
     );
     this.MPESA_STATIC_TIMESTAMP = this.configService.get<string>(
       'MPESA_STATIC_TIMESTAMP',
+    );
+    this.MPESA_SECURITY_CREDENTIAL = this.configService.get<string>(
+      'MPESA_SECURITY_CREDENTIAL',
     );
   }
 
@@ -166,14 +170,14 @@ export class MpesaService {
         `${this.baseUrl}/mpesa/b2c/v1/paymentrequest`,
         {
           InitiatorName: this.initiatorName,
-          SecurityCredential: this.initiatorPassword,
+          SecurityCredential: this.MPESA_SECURITY_CREDENTIAL,
           CommandID: 'SalaryPayment',
-          Amount: dto.amount,
+          Amount: 10,
           PartyA: this.shortCode,
           PartyB: dto.phoneNumber,
           Remarks: dto.remarks || 'Payment remarks',
-          QueueTimeOutURL: `${this.configService.get('APP_URL')}/mpesa/b2c-timeout`,
-          ResultURL: `${this.configService.get('APP_URL')}/mpesa/b2c-result`,
+          QueueTimeOutURL: this.MPESA_CALLBACK_URL,
+          ResultURL: this.MPESA_CALLBACK_URL,
           Occasion: dto.occasion || 'Payment',
           uniqueId: uniqueId,
         },
