@@ -6,12 +6,16 @@ import {
   MpesaTransaction,
   MpesaTransactionSchema,
 } from './schemas/mpesa.schema';
+import { User, UserSchema } from 'src/modules/auth/schemas/user.schema';
+import { AuthModule } from 'src/modules/auth/auth.module';
 
 @Module({
   imports: [
     MongooseModule.forFeature([
       { name: MpesaTransaction.name, schema: MpesaTransactionSchema },
+      { name: User.name, schema: UserSchema },
     ]),
+    AuthModule,
   ],
   controllers: [MpesaController],
   providers: [MpesaService],
