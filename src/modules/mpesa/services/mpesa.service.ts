@@ -164,19 +164,34 @@ export class MpesaService {
 
   async initiateB2C(dto: InitiateB2CDto, employeeId: string) {
     try {
+      // Format phone number to match database format
+      const formattedPhoneNumber = dto.phoneNumber.startsWith('0')
+        ? '+254' + dto.phoneNumber.slice(1)
+        : dto.phoneNumber;
+
+      // Try to find user by phone number
+      const user = await this.employeeModel.findOne({
+        phoneNumber: formattedPhoneNumber,
+      });
+
+      // Use found user's ID or fallback to default ID
+      const targetEmployeeId = user
+        ? user._id.toString()
+        : '6776b0221dfd812925ac8b56';
+
       const accessToken = await this.getAccessToken();
       const uniqueId = new Date()
         .toISOString()
         .replace(/[^0-9]/g, '')
         .slice(0, 12);
 
-      const response = await axios.post(
+      await axios.post(
         `${this.baseUrl}/mpesa/b2c/v1/paymentrequest`,
         {
           InitiatorName: this.initiatorName,
           SecurityCredential: this.MPESA_SECURITY_CREDENTIAL,
           CommandID: 'SalaryPayment',
-          Amount: 10,
+          Amount: dto.amount,
           PartyA: this.shortCode,
           PartyB: dto.phoneNumber,
           Remarks: dto.remarks || 'Payment remarks',
@@ -193,22 +208,30 @@ export class MpesaService {
         },
       );
 
-      // Create transaction record
-      await this.mpesaModel.create({
-        employee: employeeId,
+      // Create transaction record with the found user ID or default ID
+      const transaction = await this.mpesaModel.create({
+        employee: targetEmployeeId,
         transactionType: 'b2c',
         amount: dto.amount,
         phoneNumber: dto.phoneNumber,
         status: 'pending',
-        uniqueId: uniqueId,
-        occasion: dto.occasion,
-        remarks: dto.remarks,
+        callbackStatus: 'pending',
       });
 
-      return response.data;
+      return {
+        success: true,
+        message: 'B2C payment initiated successfully',
+        data: {
+          transactionId: transaction._id,
+          employeeId: targetEmployeeId,
+          amount: dto.amount,
+          phoneNumber: dto.phoneNumber,
+          status: transaction.status,
+        },
+      };
     } catch (error) {
-      this.logger.error('Error initiating B2C transaction:', error);
-      throw error;
+      this.logger.error('Error initiating B2C payment:', error);
+      throw new Error(`Failed to initiate B2C payment: ${error.message}`);
     }
   }
 
