@@ -52,7 +52,7 @@ export class AdvanceService {
     // Check if employee has any pending or approved advances
     const existingAdvances = await this.advanceModel.find({
       employee: new Types.ObjectId(employeeId),
-      status: { $in: ['pending', 'approved', 'disbursed'] },
+      status: { $in: ['pending', 'approved', 'disbursed', 'repaying'] },
     });
 
     if (existingAdvances.length >= config.maxActiveAdvances) {
