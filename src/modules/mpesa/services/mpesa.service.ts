@@ -388,19 +388,44 @@ export class MpesaService {
         // If no employee ID from reference, try to find employee by phone number
         if (!employeeId) {
           try {
+            // Convert phone number to international format if it starts with 0
+            const formattedPhoneNumber = phoneNumber.startsWith('0')
+              ? '+254' + phoneNumber.slice(1)
+              : phoneNumber;
+
+            console.log(
+              'Looking up user with phone number:',
+              formattedPhoneNumber,
+            );
             const employee = await this.employeeModel.findOne({
-              phoneNumber: phoneNumber,
+              phoneNumber: formattedPhoneNumber,
             });
+            console.log('Found employee:', employee);
+
             if (employee) {
               employeeId = employee._id.toString();
+              console.log('Using employee ID:', employeeId);
             } else {
-              // If no employee found, use a default ID
-              employeeId = '65983c1f3df8b0f24a384ac4'; // Default system account ID
+              // If no employee found, use a default ID that exists in your database
+              employeeId = '6776b0221dfd812925ac8b56'; // Make sure this ID exists in your database
+              console.log('Using default ID:', employeeId);
             }
           } catch (error) {
             this.logger.error('Error finding employee by phone number:', error);
-            employeeId = '65983c1f3df8b0f24a384ac4'; // Fallback to default ID on error
+            employeeId = '6776b0221dfd812925ac8b56'; // Make sure this ID exists in your database
+            console.log('Using fallback ID due to error:', employeeId);
           }
+        }
+
+        console.log(
+          'Final employeeId before creating transaction:',
+          employeeId,
+        );
+
+        // Validate that employeeId is a valid ObjectId before using it
+        if (!Types.ObjectId.isValid(employeeId)) {
+          this.logger.error('Invalid ObjectId:', employeeId);
+          employeeId = '6776b0221dfd812925ac8b56'; // Fallback to a known valid ID
         }
 
         updatedTransaction = await this.mpesaModel.create({
