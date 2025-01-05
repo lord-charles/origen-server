@@ -32,37 +32,57 @@ export class TransactionService {
       // Initialize queries for each model
       const queries: any[] = [];
 
-      // Add MPESA transactions
-      const mpesaQuery = {
-        employee: new Types.ObjectId(userId),
-      };
-
-      this.logger.debug('MPESA Query:', JSON.stringify(mpesaQuery, null, 2));
-
-      const mpesaTransactions = this.mpesaModel
-        .find(mpesaQuery)
+      // Query paybill transactions with string userId
+      const paybillTransactions = this.mpesaModel
+        .find({ employee: userId })
         .select(
-          'transactionType amount phoneNumber status createdAt accountReference ' +
-            'callbackStatus mpesaReceiptNumber transactionId receiverPartyPublicName ' +
-            'transactionCompletedDateTime',
+          'transactionType amount phoneNumber status createdAt accountReference',
         )
-        .lean();
+        .lean()
+        .exec();
 
-      this.logger.debug(`Fetching MPESA transactions for user: ${userId}`);
-      const mpesaResults = await mpesaTransactions.exec();
-      this.logger.debug(
-        'Raw MPESA Results:',
-        JSON.stringify(mpesaResults, null, 2),
+      // Query b2c transactions with ObjectId
+      const b2cTransactions = this.mpesaModel
+        .find({
+          employee: new Types.ObjectId(userId),
+          transactionType: 'b2c',
+        })
+        .select(
+          'transactionType amount phoneNumber status createdAt transactionId',
+        )
+        .lean()
+        .exec();
+
+      // Execute both MPESA queries
+      const [paybillResults, b2cResults] = await Promise.all([
+        paybillTransactions,
+        b2cTransactions,
+      ]);
+
+      // Transform B2C transactions to match paybill format
+      const transformedB2c = b2cResults.map((transaction) => ({
+        transactionType: transaction.transactionType,
+        amount: transaction.amount,
+        phoneNumber: transaction.phoneNumber,
+        accountReference: transaction.transactionId,
+        status: transaction.status,
+        createdAt: transaction.createdAt,
+        id: transaction._id?.toString(),
+        type: transaction.transactionType,
+        reason: transaction.transactionId,
+        date: new Date(transaction.createdAt).toISOString(),
+      }));
+
+      // Combine both types of transactions
+      const allMpesaTransactions = [...paybillResults, ...transformedB2c].sort(
+        (a, b) => {
+          const dateA = new Date(a.createdAt);
+          const dateB = new Date(b.createdAt);
+          return dateB.getTime() - dateA.getTime();
+        },
       );
 
-      // Log each transaction type we found
-      mpesaResults.forEach((tx) => {
-        this.logger.debug(
-          `Found transaction type: ${tx.transactionType}, status: ${tx.status}, id: ${tx._id}`,
-        );
-      });
-
-      queries.push(Promise.resolve(mpesaResults));
+      queries.push(Promise.resolve(allMpesaTransactions));
 
       // Add Wallet transactions
       const walletTransactions = this.walletModel
@@ -96,24 +116,24 @@ export class TransactionService {
       // Execute all queries
       const allTransactions = await Promise.all(queries);
 
-      // Merge and transform transactions
+      // Simply concatenate all transactions and transform them
       const mergedTransactions = allTransactions
         .flat()
-        .map((transaction) => {
-          let transformedTransaction: any = {
-            ...transaction,
-            id: transaction._id,
-            type: this.determineTransactionType(transaction),
-            reason: this.determineTransactionReason(transaction),
-            date:
-              transaction.createdAt ||
-              transaction.transactionDate ||
-              transaction.requestedDate,
-          };
-          delete transformedTransaction._id;
-          return transformedTransaction;
-        })
-        .sort((a, b) => b.date.getTime() - a.date.getTime());
+        .map((transaction) => ({
+          ...transaction,
+          _id: transaction._id?.toString(), // Keep the _id
+          type: this.determineTransactionType(transaction),
+          reason: this.determineTransactionReason(transaction),
+          date:
+            transaction.createdAt ||
+            transaction.transactionDate ||
+            transaction.requestedDate,
+        }))
+        .sort((a, b) => {
+          const dateA = new Date(a.date);
+          const dateB = new Date(b.date);
+          return dateB.getTime() - dateA.getTime();
+        });
 
       // Apply pagination
       const total = mergedTransactions.length;

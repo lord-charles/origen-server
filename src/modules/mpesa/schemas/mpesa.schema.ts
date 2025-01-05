@@ -7,6 +7,18 @@ export type MpesaTransactionDocument = MpesaTransaction & Document;
 @Schema({ timestamps: true })
 export class MpesaTransaction {
   @ApiProperty({
+    description: 'Creation timestamp',
+    example: new Date().toISOString(),
+  })
+  createdAt?: Date;
+
+  @ApiProperty({
+    description: 'Last update timestamp',
+    example: new Date().toISOString(),
+  })
+  updatedAt?: Date;
+
+  @ApiProperty({
     description: 'ID of the employee associated with the transaction',
     example: '64abc123def4567890ghijk0',
   })
