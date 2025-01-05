@@ -251,7 +251,7 @@ export class MpesaService {
         throw new Error('Transaction not found');
       }
 
-      // Base update dataPublicName
+      // Base update data
       const updateData: any = {
         resultCode: ResultCode.toString(),
         resultDesc: ResultDesc,
@@ -304,6 +304,8 @@ export class MpesaService {
   }
 
   private async handleB2CCallback(callbackData: any) {
+    console.log('Received B2C callback data:', JSON.stringify(callbackData, null, 2));
+
     const {
       Result: {
         ResultType,
@@ -382,7 +384,16 @@ export class MpesaService {
         const referenceData = callbackData.Result?.ReferenceData?.ReferenceItem;
         let employeeId;
         if (referenceData?.Key === 'QueueTimeoutURL' && referenceData?.Value) {
-          employeeId = referenceData.Value.split('/').pop();
+          console.log('Reference data found:', referenceData);
+          const urlParts = referenceData.Value.split('/');
+          console.log('URL parts:', urlParts);
+          const lastPart = urlParts[urlParts.length - 1];
+          if (Types.ObjectId.isValid(lastPart)) {
+            employeeId = lastPart;
+            console.log('Using employee ID from reference:', employeeId);
+          } else {
+            console.log('Invalid ID in reference data:', lastPart);
+          }
         }
 
         // If no employee ID from reference, try to find employee by phone number
@@ -407,31 +418,34 @@ export class MpesaService {
               console.log('Using employee ID:', employeeId);
             } else {
               // If no employee found, use a default ID that exists in your database
-              employeeId = '6776b0221dfd812925ac8b56'; // Make sure this ID exists in your database
-              console.log('Using default ID:', employeeId);
+              employeeId = '6776b0221dfd812925ac8b56';
+              console.log('No employee found, using default ID:', employeeId);
             }
           } catch (error) {
             this.logger.error('Error finding employee by phone number:', error);
-            employeeId = '6776b0221dfd812925ac8b56'; // Make sure this ID exists in your database
-            console.log('Using fallback ID due to error:', employeeId);
+            employeeId = '6776b0221dfd812925ac8b56';
+            console.log('Error occurred, using fallback ID:', employeeId);
           }
         }
 
         console.log(
-          'Final employeeId before creating transaction:',
+          'Final employeeId before validation:',
           employeeId,
+          'Type:',
+          typeof employeeId,
         );
 
         // Validate that employeeId is a valid ObjectId before using it
         if (!Types.ObjectId.isValid(employeeId)) {
           this.logger.error('Invalid ObjectId:', employeeId);
-          employeeId = '6776b0221dfd812925ac8b56'; // Fallback to a known valid ID
+          employeeId = '6776b0221dfd812925ac8b56';
+          console.log('Invalid ObjectId, using fallback ID:', employeeId);
         }
 
         updatedTransaction = await this.mpesaModel.create({
           ...transactionData,
           employee: new Types.ObjectId(employeeId),
-          amount: transactionData.confirmedAmount, // Set amount from confirmed amount
+          amount: transactionData.confirmedAmount,
         });
       }
 
