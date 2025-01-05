@@ -15,6 +15,7 @@ import {
   DailyAdvanceDto,
 } from './dto/advance-calculation.dto';
 import { User, UserDocument } from '../auth/schemas/user.schema';
+import { SystemConfig, SystemConfigDocument } from '../system-config/schemas/system-config.schema';
 
 @Injectable()
 export class AdvanceService {
@@ -23,13 +24,18 @@ export class AdvanceService {
     private readonly advanceModel: Model<AdvanceDocument>,
     @InjectModel(User.name)
     private readonly userModel: Model<UserDocument>,
+    @InjectModel(SystemConfig.name)
+    private readonly systemConfigModel: Model<SystemConfigDocument>,
   ) {}
 
   async create(
     employeeId: string,
     createAdvanceDto: CreateAdvanceDto,
   ): Promise<Advance> {
-    // 1. Check if employee exists and has base salary set
+    // Get advance configuration
+    const config = await this.getAdvanceConfig();
+
+    // Check if employee exists and has base salary set
     const employee = await this.userModel
       .findById(employeeId)
       .select('baseSalary');
@@ -40,40 +46,48 @@ export class AdvanceService {
       throw new BadRequestException('Employee base salary not set');
     }
 
-    // 2. Check if employee has any pending or approved advances
+    // Check if employee has any pending or approved advances
     const existingAdvances = await this.advanceModel.find({
       employee: new Types.ObjectId(employeeId),
       status: { $in: ['pending', 'approved', 'disbursed'] },
     });
 
-    if (existingAdvances.length > 0) {
+    if (existingAdvances.length >= config.maxActiveAdvances) {
       throw new BadRequestException(
         'Cannot request new advance while having pending, approved, or ongoing advances',
       );
     }
 
-    // 3. Validate repayment period
-    const MAX_REPAYMENT_PERIOD = 12; // Maximum 12 months repayment period
-    if (createAdvanceDto.repaymentPeriod > MAX_REPAYMENT_PERIOD) {
+    // Validate amount
+    if (
+      createAdvanceDto.amount < config.advanceMinAmount ||
+      createAdvanceDto.amount > config.advanceMaxAmount
+    ) {
       throw new BadRequestException(
-        `Repayment period cannot exceed ${MAX_REPAYMENT_PERIOD} months`,
+        `Advance amount must be between ${config.advanceMinAmount} and ${config.advanceMaxAmount}`,
       );
     }
 
-    // 5. Calculate advance details
-    const interestRate = 5; // 5% interest rate for advances
+    // Validate repayment period
+    if (createAdvanceDto.repaymentPeriod > config.advanceMaxRepaymentPeriod) {
+      throw new BadRequestException(
+        `Repayment period cannot exceed ${config.advanceMaxRepaymentPeriod} months`,
+      );
+    }
+
+    // Calculate advance details
     const amount = createAdvanceDto.amount;
     const repaymentPeriod = createAdvanceDto.repaymentPeriod;
 
     // Calculate total repayment and installment amount
-    const totalInterest = (amount * interestRate * repaymentPeriod) / 1200; // Monthly interest
+    const totalInterest = (amount * config.advanceDefaultInterestRate * repaymentPeriod) / 1200; // Monthly interest
     const totalRepayment = amount + totalInterest;
     const installmentAmount = totalRepayment / repaymentPeriod;
 
-    // 6. Check if monthly installment is within reasonable limit (e.g., not more than 50% of monthly salary)
-    if (installmentAmount > employee.baseSalary * 0.5) {
+    // Check if monthly installment is within reasonable limit
+    if (installmentAmount > employee.baseSalary * (config.maxAdvancePercentage / 100)) {
       throw new BadRequestException(
-        'Monthly repayment amount exceeds 50% of monthly salary',
+        `Monthly repayment amount exceeds ${config.maxAdvancePercentage}% of monthly salary`,
       );
     }
 
@@ -83,7 +97,7 @@ export class AdvanceService {
       employee: new Types.ObjectId(employeeId),
       status: 'pending',
       requestedDate: new Date(),
-      interestRate,
+      interestRate: config.advanceDefaultInterestRate,
       totalRepayment,
       installmentAmount,
     });
@@ -262,8 +276,8 @@ export class AdvanceService {
       throw new BadRequestException('Employee base salary not set');
     }
 
-    const maxAdvancePercentage = 50; // 50% of basic salary
-    const maxAdvance = (basicSalary * maxAdvancePercentage) / 100;
+    const config = await this.getAdvanceConfig();
+    const maxAdvanceAmount = (basicSalary * config.maxAdvancePercentage) / 100;
 
     // Get current date and calculate working days
     const today = new Date();
@@ -284,10 +298,10 @@ export class AdvanceService {
       if (!isWeekend && !isHoliday) {
         workingDaysCount++;
         // Calculate total accrual up to this working day
-        const runningTotal = (maxAdvance / 22) * workingDaysCount;
+        const runningTotal = (maxAdvanceAmount / 22) * workingDaysCount;
 
         // Cap at maxAdvanceAmount and round to nearest 100
-        const cappedAmount = Math.min(runningTotal, maxAdvance);
+        const cappedAmount = Math.min(runningTotal, maxAdvanceAmount);
         availableAdvance = Math.floor(cappedAmount / 100) * 100;
         lastNonWeekendAmount = availableAdvance;
       } else {
@@ -317,7 +331,7 @@ export class AdvanceService {
     // Return calculated advance details without adjusting for repayment balance
     return {
       availableAdvance: availableAdvance, // Use the calculated amount directly
-      maxAdvance,
+      maxAdvance: maxAdvanceAmount,
       basicSalary,
       advancePercentage: (availableAdvance / basicSalary) * 100,
       previousAdvances: totalAdvancesReceived,
@@ -344,8 +358,8 @@ export class AdvanceService {
       throw new BadRequestException('Employee base salary not set');
     }
 
-    const maxAdvancePercentage = 50;
-    const maxAdvanceAmount = (basicSalary * maxAdvancePercentage) / 100;
+    const config = await this.getAdvanceConfig();
+    const maxAdvanceAmount = (basicSalary * config.maxAdvancePercentage) / 100;
 
     // Get all days in the month - only for the specified month
     const startDate = new Date(year, month - 1, 1); // First day of month
@@ -410,7 +424,7 @@ export class AdvanceService {
       month: startDate.toLocaleString('default', { month: 'long' }),
       year,
       basicSalary,
-      maxAdvancePercentage,
+      maxAdvancePercentage: config.maxAdvancePercentage,
       maxAdvanceAmount,
       dailyAdvances: filteredAdvances,
       totalAvailableToday: lastAvailableAmount,
@@ -438,5 +452,25 @@ export class AdvanceService {
     // Implement holiday checking logic here
     // This could involve checking against a holiday database or API
     return false;
+  }
+
+  private async getAdvanceConfig() {
+    const config = await this.systemConfigModel.findOne({
+      key: 'advance_config',
+      type: 'advance',
+      isActive: true,
+    });
+
+    // Default values if no config found
+    const defaultConfig = {
+      advanceDefaultInterestRate: 5,
+      advanceMinAmount: 1000,
+      advanceMaxAmount: 50000,
+      advanceMaxRepaymentPeriod: 12,
+      maxAdvancePercentage: 50,
+      maxActiveAdvances: 1,
+    };
+
+    return config?.data || defaultConfig;
   }
 }
