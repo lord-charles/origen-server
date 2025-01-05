@@ -49,6 +49,12 @@ export class InitiateB2CDto {
     example: 'Salary Payment',
   })
   @IsString()
-  @IsNotEmpty()
-  occasion: string;
+  occasion?: string;
+
+  @ApiProperty({
+    description: 'Additional remarks for the transaction',
+    example: 'January 2025 Salary',
+  })
+  @IsString()
+  remarks?: string;
 }

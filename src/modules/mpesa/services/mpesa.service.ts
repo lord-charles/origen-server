@@ -18,6 +18,8 @@ export class MpesaService {
   private readonly shortCode: string;
   private readonly initiatorName: string;
   private readonly initiatorPassword: string;
+  private readonly passKey: string;
+  private readonly MPESA_CALLBACK_URL: string;
 
   constructor(
     @InjectModel(MpesaTransaction.name)
@@ -34,6 +36,9 @@ export class MpesaService {
     this.initiatorPassword = this.configService.get<string>(
       'MPESA_INITIATOR_PASSWORD',
     );
+    this.passKey = this.configService.get<string>('MPESA_PASS_KEY');
+    this.MPESA_CALLBACK_URL =
+      this.configService.get<string>('MPESA_CALLBACK_URL');
   }
 
   private async getAccessToken(): Promise<string> {
@@ -41,6 +46,8 @@ export class MpesaService {
       const auth = Buffer.from(
         `${this.consumerKey}:${this.consumerSecret}`,
       ).toString('base64');
+
+      console.log('auth', auth);
       const response = await axios.get(
         `${this.baseUrl}/oauth/v1/generate?grant_type=client_credentials`,
         {
@@ -59,74 +66,98 @@ export class MpesaService {
   async initiateC2B(dto: InitiateC2BDto, employeeId: string) {
     try {
       const accessToken = await this.getAccessToken();
+
       const timestamp = new Date()
         .toISOString()
         .replace(/[^0-9]/g, '')
         .slice(0, -3);
       const password = Buffer.from(
-        `${this.shortCode}${this.initiatorPassword}${timestamp}`,
+        `${this.shortCode}${this.passKey}${timestamp}`,
       ).toString('base64');
+      console.log(' MPESA_CALLBACK_URL', {
+        BusinessShortCode: this.shortCode,
+        Password:
+          'NDA3MjA2OTBmYjkyNWJmZmI4OTRiODYwODk2YmFkNzA1MjhlYWIzOGNiYmFlYmQ0YmIzZmRlMDNjODk5ZGMzNzkzNzE2NDkyMDI1MDEwMzEyMTM1MA==',
+        Timestamp: timestamp,
+        TransactionType: 'CustomerPayBillOnline',
+        Amount: dto.amount,
+        PartyA: dto.phoneNumber,
+        PartyB: this.shortCode,
+        PhoneNumber: dto.phoneNumber,
+        CallBackURL: `${this.MPESA_CALLBACK_URL}`,
+        AccountReference: dto.accountReference,
+        TransactionDesc: 'CustomerPayBillOnline',
+        Remark: 'INITIATE STK PUSH',
+      });
 
       const response = await axios.post(
         `${this.baseUrl}/mpesa/stkpush/v1/processrequest`,
         {
           BusinessShortCode: this.shortCode,
-          Password: password,
+          Password:
+            'NDA3MjA2OTBmYjkyNWJmZmI4OTRiODYwODk2YmFkNzA1MjhlYWIzOGNiYmFlYmQ0YmIzZmRlMDNjODk5ZGMzNzkzNzE2NDkyMDI1MDEwMzEyMTM1MA==',
           Timestamp: timestamp,
           TransactionType: 'CustomerPayBillOnline',
           Amount: dto.amount,
           PartyA: dto.phoneNumber,
           PartyB: this.shortCode,
           PhoneNumber: dto.phoneNumber,
-          CallBackURL: `${this.configService.get('APP_URL')}/mpesa/callback`,
+          CallBackURL: `${this.MPESA_CALLBACK_URL}`,
           AccountReference: dto.accountReference,
-          TransactionDesc: 'Payment for services',
+          TransactionDesc: 'CustomerPayBillOnline',
+          Remark: 'INITIATE STK PUSH',
         },
         {
           headers: {
-            Authorization: `Bearer ${accessToken}`,
+            Authorization: `Bearer ZjTLdPAHAoTilmEAsd5siaqGsXo6`,
           },
         },
       );
 
       // Create transaction record
-      await this.mpesaModel.create({
-        employee: employeeId,
-        transactionType: 'paybill',
-        amount: dto.amount,
-        phoneNumber: dto.phoneNumber,
-        accountReference: dto.accountReference,
-        status: 'pending',
-        checkoutRequestId: response.data.CheckoutRequestID,
-      });
+      // await this.mpesaModel.create({
+      //   employee: employeeId,
+      //   transactionType: 'paybill',
+      //   amount: dto.amount,
+      //   phoneNumber: dto.phoneNumber,
+      //   accountReference: dto.accountReference,
+      //   status: 'pending',
+      //   checkoutRequestId: response.data.CheckoutRequestID,
+      //   merchantRequestId: response.data.MerchantRequestID,
+      // });
 
       return response.data;
     } catch (error) {
-      this.logger.error('Error initiating C2B transaction:', error);
-      throw error;
+      this.logger.error('Error initiating C2B transaction:', error.response);
     }
   }
 
   async initiateB2C(dto: InitiateB2CDto, employeeId: string) {
     try {
       const accessToken = await this.getAccessToken();
+      const uniqueId = new Date()
+        .toISOString()
+        .replace(/[^0-9]/g, '')
+        .slice(0, 12);
 
       const response = await axios.post(
         `${this.baseUrl}/mpesa/b2c/v1/paymentrequest`,
         {
           InitiatorName: this.initiatorName,
           SecurityCredential: this.initiatorPassword,
-          CommandID: 'BusinessPayment',
+          CommandID: 'SalaryPayment',
           Amount: dto.amount,
           PartyA: this.shortCode,
           PartyB: dto.phoneNumber,
-          Remarks: dto.occasion,
-          QueueTimeOutURL: `${this.configService.get('APP_URL')}/mpesa/timeout`,
-          ResultURL: `${this.configService.get('APP_URL')}/mpesa/callback`,
-          Occasion: dto.occasion,
+          Remarks: dto.remarks || 'Payment remarks',
+          QueueTimeOutURL: `${this.configService.get('APP_URL')}/mpesa/b2c-timeout`,
+          ResultURL: `${this.configService.get('APP_URL')}/mpesa/b2c-result`,
+          Occasion: dto.occasion || 'Payment',
+          uniqueId: uniqueId,
         },
         {
           headers: {
+            'Content-Type': 'application/json',
             Authorization: `Bearer ${accessToken}`,
           },
         },
@@ -135,13 +166,13 @@ export class MpesaService {
       // Create transaction record
       await this.mpesaModel.create({
         employee: employeeId,
-        transactionType: 'send_money',
+        transactionType: 'b2c',
         amount: dto.amount,
         phoneNumber: dto.phoneNumber,
         status: 'pending',
+        uniqueId: uniqueId,
         occasion: dto.occasion,
-        conversationId: response.data.ConversationID,
-        originatorConversationId: response.data.OriginatorConversationID,
+        remarks: dto.remarks,
       });
 
       return response.data;
