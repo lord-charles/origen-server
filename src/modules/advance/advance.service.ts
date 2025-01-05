@@ -15,7 +15,10 @@ import {
   DailyAdvanceDto,
 } from './dto/advance-calculation.dto';
 import { User, UserDocument } from '../auth/schemas/user.schema';
-import { SystemConfig, SystemConfigDocument } from '../system-config/schemas/system-config.schema';
+import {
+  SystemConfig,
+  SystemConfigDocument,
+} from '../system-config/schemas/system-config.schema';
 
 @Injectable()
 export class AdvanceService {
@@ -80,12 +83,16 @@ export class AdvanceService {
     const repaymentPeriod = createAdvanceDto.repaymentPeriod;
 
     // Calculate total repayment and installment amount
-    const totalInterest = (amount * config.advanceDefaultInterestRate * repaymentPeriod) / 1200; // Monthly interest
+    const totalInterest =
+      (amount * config.advanceDefaultInterestRate * repaymentPeriod) / 1200; // Monthly interest
     const totalRepayment = amount + totalInterest;
     const installmentAmount = totalRepayment / repaymentPeriod;
 
     // Check if monthly installment is within reasonable limit
-    if (installmentAmount > employee.baseSalary * (config.maxAdvancePercentage / 100)) {
+    if (
+      installmentAmount >
+      employee.baseSalary * (config.maxAdvancePercentage / 100)
+    ) {
       throw new BadRequestException(
         `Monthly repayment amount exceeds ${config.maxAdvancePercentage}% of monthly salary`,
       );
@@ -312,31 +319,51 @@ export class AdvanceService {
     // Get advance history metrics
     const advances = await this.advanceModel.find({
       employee: employeeId,
-      status: { $in: ['approved', 'repaying', 'repaid'] },
     });
 
-    const totalAdvancesReceived = advances.reduce(
-      (sum, adv) => sum + adv.amount,
-      0,
+    // Calculate metrics based on advance statuses
+    const metrics = advances.reduce(
+      (acc, advance) => {
+        // Count all disbursed advances as previous advances
+        if (
+          advance.status === 'disbursed' ||
+          advance.status === 'repaying' ||
+          advance.status === 'repaid'
+        ) {
+          acc.totalDisbursed += advance.amount;
+        }
+
+        // Add to repayment balance if advance is disbursed or being repaid
+        if (advance.status === 'disbursed' || advance.status === 'repaying') {
+          acc.repaymentBalance += advance.amount - (advance.amountRepaid || 0);
+        }
+
+        // Calculate total repaid amount
+        if (advance.status === 'repaid') {
+          // For fully repaid advances, add the full amount
+          acc.totalRepaid += advance.amount;
+        } else if (advance.amountRepaid) {
+          // For advances in other statuses, add any partial repayments
+          acc.totalRepaid += advance.amountRepaid;
+        }
+
+        return acc;
+      },
+      { totalDisbursed: 0, repaymentBalance: 0, totalRepaid: 0 },
     );
-    const totalAmountRepaid = advances.reduce(
-      (sum, adv) => sum + (adv.amountRepaid || 0),
-      0,
-    );
-    const repaymentBalance = totalAdvancesReceived - totalAmountRepaid;
 
     // Calculate next payday (25th of current or next month)
     const nextPayday = this.calculateNextPayday();
 
-    // Return calculated advance details without adjusting for repayment balance
+    // Return calculated advance details
     return {
-      availableAdvance: availableAdvance, // Use the calculated amount directly
+      availableAdvance: availableAdvance,
       maxAdvance: maxAdvanceAmount,
       basicSalary,
       advancePercentage: (availableAdvance / basicSalary) * 100,
-      previousAdvances: totalAdvancesReceived,
-      totalAmountRepaid,
-      repaymentBalance,
+      previousAdvances: metrics.totalDisbursed,
+      totalAmountRepaid: metrics.totalRepaid,
+      repaymentBalance: metrics.repaymentBalance,
       nextPayday: nextPayday.toISOString().split('T')[0],
     };
   }
