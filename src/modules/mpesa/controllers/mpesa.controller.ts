@@ -16,11 +16,13 @@ import {
   ApiOperation,
   ApiTags,
   ApiQuery,
+  ApiResponse,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { MpesaService } from '../services/mpesa.service';
 import { InitiateB2CDto, InitiateC2BDto } from '../dtos/mpesa.dto';
 import { Public } from 'src/modules/auth/decorators/public.decorator';
+import { HttpException } from '@nestjs/common';
 
 @ApiTags('Mpesa')
 @ApiBearerAuth()
@@ -32,9 +34,51 @@ export class MpesaController {
   constructor(private readonly mpesaService: MpesaService) {}
 
   @Post('initiate-c2b')
-  @ApiOperation({ summary: 'Initiate C2B Mpesa payment' })
+  @ApiOperation({
+    summary: 'Initiate C2B Mpesa payment',
+    description:
+      "Initiates an STK push request to the customer's phone for payment",
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'STK push initiated successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'Success. Request accepted for processing',
+        data: {
+          merchantRequestId: '486b-4336-91ac-cdd61fd99f3765484483',
+          checkoutRequestId: 'ws_CO_05012025105205632740315545',
+          responseDescription: 'Success. Request accepted for processing',
+          transactionId: '65abc123def4567890ghijk0',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Bad request',
+    schema: {
+      example: {
+        success: false,
+        message: 'Invalid phone number format',
+      },
+    },
+  })
   async initiateC2B(@Body() dto: InitiateC2BDto, @Request() req) {
-    return this.mpesaService.initiateC2B(dto, req.user.id);
+    try {
+      const result = await this.mpesaService.initiateC2B(dto, req.user.id);
+      return result;
+    } catch (error) {
+      this.logger.error('C2B initiation error:', error);
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Failed to initiate payment',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   @Post('initiate-b2c')
@@ -45,16 +89,40 @@ export class MpesaController {
 
   @Public()
   @Post('callback')
-  @HttpCode(HttpStatus.CREATED)
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Mpesa callback endpoint - Called by Mpesa servers',
+    summary: 'Mpesa callback endpoint',
+    description: 'Handles callbacks from Mpesa for STK push completion',
   })
-  async handleCallback(@Body() payload: any) {
-    this.logger.log(
-      'Received Mpesa callback payload:',
-      JSON.stringify(payload, null, 2),
-    );
-    return this.mpesaService.handleCallback(payload);
+  @ApiResponse({
+    status: 200,
+    description: 'Callback processed successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'Callback processed successfully',
+        data: {
+          transactionId: '65abc123def4567890ghijk0',
+          status: 'completed',
+          mpesaReceiptNumber: 'PLJ3RK6TO2',
+        },
+      },
+    },
+  })
+  async handleCallback(@Body() callbackData: any) {
+    try {
+      const result = await this.mpesaService.handleCallback(callbackData);
+      return result;
+    } catch (error) {
+      this.logger.error('Callback processing error:', error);
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Failed to process callback',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
   }
 
   @Get('transactions')

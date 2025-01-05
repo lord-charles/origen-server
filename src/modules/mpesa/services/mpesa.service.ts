@@ -20,6 +20,8 @@ export class MpesaService {
   private readonly initiatorPassword: string;
   private readonly passKey: string;
   private readonly MPESA_CALLBACK_URL: string;
+  private readonly MPESA_STATIC_PASSWORD: string;
+  private readonly MPESA_STATIC_TIMESTAMP: string;
 
   constructor(
     @InjectModel(MpesaTransaction.name)
@@ -39,6 +41,12 @@ export class MpesaService {
     this.passKey = this.configService.get<string>('MPESA_PASS_KEY');
     this.MPESA_CALLBACK_URL =
       this.configService.get<string>('MPESA_CALLBACK_URL');
+    this.MPESA_STATIC_PASSWORD = this.configService.get<string>(
+      'MPESA_STATIC_PASSWORD',
+    );
+    this.MPESA_STATIC_TIMESTAMP = this.configService.get<string>(
+      'MPESA_STATIC_TIMESTAMP',
+    );
   }
 
   private async getAccessToken(): Promise<string> {
@@ -67,68 +75,82 @@ export class MpesaService {
     try {
       const accessToken = await this.getAccessToken();
 
-      const timestamp = new Date()
-        .toISOString()
-        .replace(/[^0-9]/g, '')
-        .slice(0, -3);
-      const password = Buffer.from(
-        `${this.shortCode}${this.passKey}${timestamp}`,
-      ).toString('base64');
-      console.log(' MPESA_CALLBACK_URL', {
+      const requestBody = {
         BusinessShortCode: this.shortCode,
-        Password:
-          'NDA3MjA2OTBmYjkyNWJmZmI4OTRiODYwODk2YmFkNzA1MjhlYWIzOGNiYmFlYmQ0YmIzZmRlMDNjODk5ZGMzNzkzNzE2NDkyMDI1MDEwMzEyMTM1MA==',
-        Timestamp: timestamp,
+        Password: this.MPESA_STATIC_PASSWORD,
+        Timestamp: this.MPESA_STATIC_TIMESTAMP,
         TransactionType: 'CustomerPayBillOnline',
         Amount: dto.amount,
         PartyA: dto.phoneNumber,
         PartyB: this.shortCode,
         PhoneNumber: dto.phoneNumber,
-        CallBackURL: `${this.MPESA_CALLBACK_URL}`,
+        CallBackURL: this.MPESA_CALLBACK_URL,
         AccountReference: dto.accountReference,
         TransactionDesc: 'CustomerPayBillOnline',
         Remark: 'INITIATE STK PUSH',
-      });
+      };
+
+      this.logger.debug(
+        'STK Push Request:',
+        JSON.stringify(requestBody, null, 2),
+      );
 
       const response = await axios.post(
         `${this.baseUrl}/mpesa/stkpush/v1/processrequest`,
-        {
-          BusinessShortCode: this.shortCode,
-          Password:
-            'NDA3MjA2OTBmYjkyNWJmZmI4OTRiODYwODk2YmFkNzA1MjhlYWIzOGNiYmFlYmQ0YmIzZmRlMDNjODk5ZGMzNzkzNzE2NDkyMDI1MDEwMzEyMTM1MA==',
-          Timestamp: timestamp,
-          TransactionType: 'CustomerPayBillOnline',
-          Amount: dto.amount,
-          PartyA: dto.phoneNumber,
-          PartyB: this.shortCode,
-          PhoneNumber: dto.phoneNumber,
-          CallBackURL: `${this.MPESA_CALLBACK_URL}`,
-          AccountReference: dto.accountReference,
-          TransactionDesc: 'CustomerPayBillOnline',
-          Remark: 'INITIATE STK PUSH',
-        },
+        requestBody,
         {
           headers: {
-            Authorization: `Bearer CI3gCwJXBCa1pL5D6dLrtBcBh1lG`,
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken}`,
           },
         },
       );
 
-      // Create transaction record
-      // await this.mpesaModel.create({
-      //   employee: employeeId,
-      //   transactionType: 'paybill',
-      //   amount: dto.amount,
-      //   phoneNumber: dto.phoneNumber,
-      //   accountReference: dto.accountReference,
-      //   status: 'pending',
-      //   checkoutRequestId: response.data.CheckoutRequestID,
-      //   merchantRequestId: response.data.MerchantRequestID,
-      // });
+      this.logger.debug(
+        'STK Push Response:',
+        JSON.stringify(response.data, null, 2),
+      );
 
-      return response.data;
+      // Create transaction record with response details
+      const transaction = await this.mpesaModel.create({
+        employee: employeeId,
+        transactionType: 'paybill',
+        amount: dto.amount,
+        phoneNumber: dto.phoneNumber,
+        accountReference: dto.accountReference,
+        status: 'pending',
+        merchantRequestId: response.data.MerchantRequestID,
+        checkoutRequestId: response.data.CheckoutRequestID,
+        responseCode: response.data.ResponseCode,
+        responseDescription: response.data.ResponseDescription,
+        customerMessage: response.data.CustomerMessage,
+      });
+
+      return {
+        success: response.data.ResponseCode === '0',
+        message: response.data.CustomerMessage,
+        data: {
+          merchantRequestId: response.data.MerchantRequestID,
+          checkoutRequestId: response.data.CheckoutRequestID,
+          responseDescription: response.data.ResponseDescription,
+          transactionId: transaction._id,
+        },
+      };
     } catch (error) {
-      this.logger.error('Error initiating C2B transaction:', error.response);
+      if (error.response) {
+        this.logger.error('Error Response Data:', error.response.data);
+        this.logger.error('Error Response Status:', error.response.status);
+        this.logger.error('Error Response Headers:', error.response.headers);
+        throw new Error(
+          `Mpesa API Error: ${JSON.stringify(error.response.data)}`,
+        );
+      } else if (error.request) {
+        this.logger.error('Error Request:', error.request);
+        throw new Error('No response received from Mpesa API');
+      } else {
+        this.logger.error('Error:', error.message);
+        throw new Error(`Error setting up request: ${error.message}`);
+      }
     }
   }
 
@@ -182,105 +204,85 @@ export class MpesaService {
     }
   }
 
-  async handleCallback(payload: any) {
-    this.logger.log(
-      'Processing Mpesa callback payload:',
-      JSON.stringify(payload, null, 2),
+  async handleCallback(callbackData: any) {
+    this.logger.debug(
+      'Received callback data:',
+      JSON.stringify(callbackData, null, 2),
     );
 
+    const { Body } = callbackData;
+    if (!Body?.stkCallback) {
+      throw new Error('Invalid callback data structure');
+    }
+
+    const {
+      MerchantRequestID,
+      CheckoutRequestID,
+      ResultCode,
+      ResultDesc,
+      CallbackMetadata,
+    } = Body.stkCallback;
+
     try {
-      if (payload.Body?.stkCallback) {
-        // STK Push callback
-        const { ResultCode, CheckoutRequestID, ResultDesc, CallbackMetadata } =
-          payload.Body.stkCallback;
+      // Find the transaction
+      const transaction = await this.mpesaModel.findOne({
+        merchantRequestId: MerchantRequestID,
+        checkoutRequestId: CheckoutRequestID,
+      });
 
-        this.logger.log('STK Push callback details:', {
-          ResultCode,
-          CheckoutRequestID,
-          ResultDesc,
-          CallbackMetadata,
-          timestamp: new Date().toISOString(),
-        });
-
-        const transaction = await this.mpesaModel.findOneAndUpdate(
-          { checkoutRequestId: CheckoutRequestID },
-          {
-            status: ResultCode === 0 ? 'completed' : 'failed',
-            resultDescription: ResultDesc,
-            rawCallback: payload,
-            ...(CallbackMetadata?.Item && {
-              mpesaReceiptNumber: CallbackMetadata.Item.find(
-                (item: any) => item.Name === 'MpesaReceiptNumber',
-              )?.Value,
-              transactionDate: CallbackMetadata.Item.find(
-                (item: any) => item.Name === 'TransactionDate',
-              )?.Value,
-              phoneNumber: CallbackMetadata.Item.find(
-                (item: any) => item.Name === 'PhoneNumber',
-              )?.Value,
-            }),
-          },
-          { new: true },
-        );
-
-        // this.logger.log('Updated transaction:', {
-        //   checkoutRequestId: CheckoutRequestID,
-        //   status: transaction?.status,
-        //   mpesaReceiptNumber: transaction?.mpesaReceiptNumber,
-        // });
-      } else if (payload.Result) {
-        // B2C callback
-        const {
-          ResultCode,
-          ResultDesc,
-          ConversationID,
-          TransactionID,
-          ResultParameters,
-        } = payload.Result;
-
-        this.logger.log('B2C callback details:', {
-          ResultCode,
-          ResultDesc,
-          ConversationID,
-          TransactionID,
-          ResultParameters,
-          timestamp: new Date().toISOString(),
-        });
-
-        const transaction = await this.mpesaModel.findOneAndUpdate(
-          { conversationId: ConversationID },
-          {
-            status: ResultCode === 0 ? 'completed' : 'failed',
-            resultDescription: ResultDesc,
-            rawCallback: payload,
-            mpesaReceiptNumber: TransactionID,
-            transactionDate: new Date(),
-            ...(ResultParameters?.ResultParameter && {
-              amount: ResultParameters.ResultParameter.find(
-                (param: any) => param.Key === 'TransactionAmount',
-              )?.Value,
-              recipientDetails: ResultParameters.ResultParameter.find(
-                (param: any) => param.Key === 'ReceiverPartyPublicName',
-              )?.Value,
-            }),
-          },
-          { new: true },
-        );
-
-        // this.logger.log('Updated transaction:', {
-        //   conversationId: ConversationID,
-        //   status: transaction?.status,
-        //   mpesaReceiptNumber: transaction?.mpesaReceiptNumber,
-        // });
-      } else {
-        this.logger.warn('Unknown callback payload format:', payload);
+      if (!transaction) {
+        throw new Error('Transaction not found');
       }
 
-      return { success: true };
+      // Base update data
+      const updateData: any = {
+        resultCode: ResultCode.toString(),
+        resultDesc: ResultDesc,
+        callbackStatus: 'processed',
+        status: ResultCode === 0 ? 'completed' : 'failed',
+      };
+
+      // Process callback metadata if payment was successful
+      if (ResultCode === 0 && CallbackMetadata?.Item) {
+        const metadataMap = new Map(
+          CallbackMetadata.Item.map((item: any) => [item.Name, item.Value]),
+        );
+
+        // Update with metadata fields
+        updateData.confirmedAmount = metadataMap.get('Amount');
+        updateData.mpesaReceiptNumber = metadataMap.get('MpesaReceiptNumber');
+        updateData.balance = metadataMap.get('Balance');
+        updateData.transactionDate = metadataMap
+          .get('TransactionDate')
+          ?.toString();
+        updateData.callbackPhoneNumber = metadataMap
+          .get('PhoneNumber')
+          ?.toString();
+      }
+
+      // Update the transaction
+      const updatedTransaction = await this.mpesaModel.findByIdAndUpdate(
+        transaction._id,
+        updateData,
+        { new: true },
+      );
+
+      return {
+        success: true,
+        message: 'Callback processed successfully',
+        data: {
+          transactionId: updatedTransaction._id,
+          status: updatedTransaction.status,
+          mpesaReceiptNumber: updatedTransaction.mpesaReceiptNumber,
+          resultDesc: updatedTransaction.resultDesc,
+          amount: updatedTransaction.confirmedAmount,
+          transactionDate: updatedTransaction.transactionDate,
+          phoneNumber: updatedTransaction.callbackPhoneNumber,
+        },
+      };
     } catch (error) {
       this.logger.error('Error processing callback:', error);
-      this.logger.error('Problematic payload:', payload);
-      throw error;
+      throw new Error(`Failed to process callback: ${error.message}`);
     }
   }
 
