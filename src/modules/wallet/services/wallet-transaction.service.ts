@@ -41,30 +41,13 @@ export class WalletTransactionService {
         createTransactionDto.recipientDetails,
       );
 
-      // Validate wallet ID
-      if (!Types.ObjectId.isValid(walletId)) {
-        throw new BadRequestException('Invalid wallet ID');
-      }
-
-      // If it's a transfer to another wallet, validate recipient wallet
-      if (
-        createTransactionDto.transactionType === 'transfer_to_wallet' &&
-        createTransactionDto.recipientDetails?.recipientWalletId
-      ) {
-        const recipientWalletId =
-          createTransactionDto.recipientDetails.recipientWalletId;
-        if (walletId === recipientWalletId.toString()) {
-          throw new BadRequestException('Cannot transfer to the same wallet');
-        }
-      }
-
       // Create the transaction
       const transaction = new this.walletTransactionModel({
         ...createTransactionDto,
         walletId: new Types.ObjectId(walletId),
         transactionId,
         transactionDate: new Date(),
-        status: 'pending',
+        status: 'completed',
       });
 
       const savedTransaction = await transaction.save();

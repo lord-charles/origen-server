@@ -87,6 +87,8 @@ export class TransactionService {
         ...walletTransactions.map((transaction) => ({
           ...transaction,
           _id: transaction._id?.toString(),
+          accountReference:
+            transaction.transactionId || transaction.description,
           type: this.determineTransactionType(transaction),
           reason: transaction.description,
           date: transaction.transactionDate,
