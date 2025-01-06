@@ -89,6 +89,9 @@ export class TransactionService {
           _id: transaction._id?.toString(),
           accountReference:
             transaction.transactionId || transaction.description,
+          phoneNumber:
+            transaction.recipientDetails.recipientWalletId.toString() ||
+            transaction.recipientDetails.recipientMpesaNumber,
           type: this.determineTransactionType(transaction),
           reason: transaction.description,
           date: transaction.transactionDate,
