@@ -31,6 +31,13 @@ export class WalletPaymentService {
 
   async walletToWallet(userId: string, dto: WalletToWalletDto) {
     try {
+      // Prevent self-transfer
+      if (userId === dto.recipientWalletId) {
+        throw new BadRequestException(
+          'Cannot transfer money to your own wallet',
+        );
+      }
+
       // Validate both wallets exist
       const [sender, recipient] = await Promise.all([
         this.userModel.findById(userId),
