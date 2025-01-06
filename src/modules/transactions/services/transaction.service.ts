@@ -28,124 +28,88 @@ export class TransactionService {
     try {
       const { page = 1, limit = 10 } = pagination;
       const skip = (page - 1) * limit;
+      const userObjectId = new Types.ObjectId(userId);
 
-      // Initialize queries for each model
-      const queries: any[] = [];
+      // Fetch all transactions in parallel
+      const [mpesaTransactions, walletTransactions, loanTransactions] =
+        await Promise.all([
+          // Fetch all MPESA transactions (both paybill and b2c)
+          this.mpesaModel
+            .find({
+              employee: userObjectId,
+            })
+            .select(
+              'transactionType amount phoneNumber status createdAt accountReference transactionId',
+            )
+            .lean()
+            .exec(),
 
-      // Query paybill transactions with string userId
-      const paybillTransactions = this.mpesaModel
-        .find({ employee: new Types.ObjectId(userId) })
-        .select(
-          'transactionType amount phoneNumber status createdAt accountReference',
-        )
-        .lean()
-        .exec();
+          // Fetch wallet transactions
+          this.walletModel
+            .find({
+              $or: [
+                { walletId: userObjectId },
+                { 'recipientDetails.recipientWalletId': userObjectId },
+              ],
+            })
+            .select(
+              'transactionType amount status transactionDate description recipientDetails transactionId',
+            )
+            .lean()
+            .exec(),
 
-      // Query b2c transactions with ObjectId
-      const b2cTransactions = this.mpesaModel
-        .find({
-          employee: new Types.ObjectId(userId),
-          transactionType: 'b2c',
-        })
-        .select(
-          'transactionType amount phoneNumber status createdAt transactionId',
-        )
-        .lean()
-        .exec();
+          // Fetch loan transactions
+          this.loanModel
+            .find({ employee: userObjectId })
+            .select(
+              'amount purpose status requestedDate disbursedDate installmentAmount',
+            )
+            .lean()
+            .exec(),
+        ]);
 
-      // Execute both MPESA queries
-      const [paybillResults, b2cResults] = await Promise.all([
-        paybillTransactions,
-        b2cTransactions,
-      ]);
-
-      // Transform B2C transactions to match paybill format
-      const transformedB2c = b2cResults.map((transaction) => ({
-        transactionType: transaction.transactionType,
-        amount: transaction.amount,
-        phoneNumber: transaction.phoneNumber,
-        accountReference: transaction.transactionId,
-        status: transaction.status,
-        createdAt: transaction.createdAt,
-        id: transaction._id?.toString(),
-        type: transaction.transactionType,
-        reason: transaction.transactionId,
-        date: new Date(transaction.createdAt).toISOString(),
-      }));
-
-      // Combine both types of transactions
-      const allMpesaTransactions = [...paybillResults, ...transformedB2c].sort(
-        (a, b) => {
-          const dateA = new Date(a.createdAt);
-          const dateB = new Date(b.createdAt);
-          return dateB.getTime() - dateA.getTime();
-        },
-      );
-
-      queries.push(Promise.resolve(allMpesaTransactions));
-
-      // Add Wallet transactions
-      const walletTransactions = this.walletModel
-        .find({
-          $or: [
-            { walletId: new Types.ObjectId(userId) },
-            {
-              'recipientDetails.recipientWalletId': new Types.ObjectId(userId),
-            },
-          ],
-        })
-        .select(
-          'transactionType amount status transactionDate description recipientDetails transactionId',
-        )
-        .lean()
-        .exec();
-
-      queries.push(walletTransactions);
-
-      // Add Loan transactions
-      const loanTransactions = this.loanModel
-        .find({ employee: userId })
-        .select(
-          'amount purpose status requestedDate disbursedDate installmentAmount',
-        )
-        .lean()
-        .exec();
-
-      queries.push(loanTransactions);
-
-      // Execute all queries
-      const allTransactions = await Promise.all(queries);
-
-      // Simply concatenate all transactions and transform them
-      const mergedTransactions = allTransactions
-        .flat()
-        .map((transaction) => ({
+      // Transform transactions to a common format
+      const transformedTransactions = [
+        // Transform MPESA transactions
+        ...mpesaTransactions.map((transaction) => ({
           ...transaction,
-          _id: transaction._id?.toString(), // Keep the _id
+          _id: transaction._id?.toString(),
           type: this.determineTransactionType(transaction),
-          reason: this.determineTransactionReason(transaction),
-          date:
-            transaction.createdAt ||
-            transaction.transactionDate ||
-            transaction.requestedDate,
-        }))
-        .sort((a, b) => {
-          const dateA = new Date(a.date);
-          const dateB = new Date(b.date);
-          return dateB.getTime() - dateA.getTime();
-        });
+          reason: transaction.transactionId || transaction.accountReference,
+          date: transaction.createdAt,
+          amount: transaction.amount,
+          status: transaction.status,
+        })),
+
+        // Transform wallet transactions
+        ...walletTransactions.map((transaction) => ({
+          ...transaction,
+          _id: transaction._id?.toString(),
+          type: this.determineTransactionType(transaction),
+          reason: transaction.description,
+          date: transaction.transactionDate,
+          amount: transaction.amount,
+          status: transaction.status,
+        })),
+
+        // Transform loan transactions
+        ...loanTransactions.map((transaction) => ({
+          ...transaction,
+          _id: transaction._id?.toString(),
+          type: TransactionType.LOAN_DISBURSEMENT,
+          reason: transaction.purpose,
+          date: transaction.requestedDate,
+          amount: transaction.amount,
+          status: transaction.status,
+        })),
+      ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
       // Apply pagination
-      const total = mergedTransactions.length;
-      const paginatedTransactions = mergedTransactions.slice(
+      const total = transformedTransactions.length;
+      const paginatedTransactions = transformedTransactions.slice(
         skip,
         skip + limit,
       );
-
-      // Calculate pagination metadata
-      const totalPages = Math.ceil(total / limit);
-      const hasNextPage = page < totalPages;
-      const hasPreviousPage = page > 1;
 
       return {
         success: true,
@@ -155,9 +119,9 @@ export class TransactionService {
             total,
             page,
             limit,
-            totalPages,
-            hasNextPage,
-            hasPreviousPage,
+            totalPages: Math.ceil(total / limit),
+            hasNextPage: page < Math.ceil(total / limit),
+            hasPreviousPage: page > 1,
           },
         },
       };
