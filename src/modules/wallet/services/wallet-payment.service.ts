@@ -31,8 +31,11 @@ export class WalletPaymentService {
 
   async walletToWallet(userId: string, dto: WalletToWalletDto) {
     try {
-      // Prevent self-transfer
-      if (userId === dto.recipientWalletId) {
+      // Prevent self-transfer by comparing string representations
+      const senderIdStr = userId.toString();
+      const recipientIdStr = dto.recipientWalletId.toString();
+
+      if (senderIdStr === recipientIdStr) {
         throw new BadRequestException(
           'Cannot transfer money to your own wallet',
         );
