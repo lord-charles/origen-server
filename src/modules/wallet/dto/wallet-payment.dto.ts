@@ -1,6 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsNumber, IsOptional, IsString, Min } from 'class-validator';
-import { Types } from 'mongoose';
+import {
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  Min,
+} from 'class-validator';
 
 export class WalletToWalletDto {
   @ApiProperty({
@@ -65,7 +70,7 @@ export class WalletToMpesaDto {
 
   @ApiProperty({
     description: 'Amount to transfer in KES',
-    example: 1000,
+    example: 10,
   })
   @IsNumber()
   @Min(1)

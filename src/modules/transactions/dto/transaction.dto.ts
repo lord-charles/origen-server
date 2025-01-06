@@ -11,6 +11,7 @@ export enum TransactionType {
   WALLET_RECEIVE_FROM_MPESA = 'receive_from_mpesa',
   WALLET_TRANSFER = 'transfer_to_wallet',
   WALLET_RECEIVE_ADVANCE = 'receive_from_advance',
+  WALLET_WITHDRAWAL = 'withdrawal',
 
   // Loan Types
   LOAN_DISBURSEMENT = 'loan_disbursement',

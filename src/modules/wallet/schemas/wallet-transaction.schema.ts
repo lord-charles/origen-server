@@ -21,6 +21,7 @@ export class WalletTransaction {
       'receive_from_mpesa',
       'transfer_to_wallet',
       'receive_from_advance',
+      'withdrawal',
     ],
   })
   @Prop({
@@ -30,6 +31,7 @@ export class WalletTransaction {
       'receive_from_mpesa',
       'transfer_to_wallet',
       'receive_from_advance',
+      'withdrawal',
     ],
   })
   transactionType: string;

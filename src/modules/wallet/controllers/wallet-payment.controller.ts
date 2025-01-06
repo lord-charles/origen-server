@@ -51,16 +51,16 @@ export class WalletPaymentController {
     return this.walletPaymentService.mpesaToWallet(req.user._id, dto);
   }
 
-  // @Post('wallet-to-mpesa')
-  // @HttpCode(HttpStatus.OK)
-  // @ApiOperation({ summary: 'Transfer money from wallet to M-PESA' })
-  // @ApiResponse({
-  //   status: HttpStatus.OK,
-  //   description: 'M-PESA transaction initiated',
-  // })
-  // async walletToMpesa(@Request() req, @Body() dto: WalletToMpesaDto) {
-  //   return this.walletPaymentService.walletToMpesa(req.user._id, dto);
-  // }
+  @Post('wallet-to-mpesa')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Transfer money from wallet to M-PESA' })
+  @ApiResponse({
+    status: HttpStatus.OK,
+    description: 'M-PESA transaction initiated',
+  })
+  async walletToMpesa(@Request() req, @Body() dto: WalletToMpesaDto) {
+    return this.walletPaymentService.walletToMpesa(req.user._id, dto);
+  }
 
   // @Post('salary-advance')
   // @HttpCode(HttpStatus.CREATED)

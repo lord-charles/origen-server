@@ -297,6 +297,7 @@ export class WalletTransactionService {
 
       case 'receive_from_mpesa':
       case 'receive_from_advance':
+      case 'withdrawal':
         // No recipient details needed for these types
         break;
 

@@ -161,35 +161,49 @@ export class WalletPaymentService {
     return mpesaTransaction;
   }
 
-  // async walletToMpesa(userId: string, dto: WalletToMpesaDto) {
-  //   // Validate sender wallet exists
-  //   const sender = await this.userModel.findById(userId);
-  //   if (!sender) {
-  //     throw new NotFoundException('Sender wallet not found');
-  //   }
+  async walletToMpesa(userId: string, dto: WalletToMpesaDto) {
+    // Validate sender wallet exists
+    const sender = await this.userModel.findById(userId);
+    if (!sender) {
+      throw new NotFoundException('Withdrawal wallet not found');
+    }
 
-  //   // Create wallet transaction
-  //   const walletTransaction = await this.walletTransactionService.create({
-  //     walletId: new Types.ObjectId(userId),
-  //     amount: dto.amount,
-  //     transactionType: 'send_to_mpesa',
-  //     recipientMpesaNumber: dto.phoneNumber,
-  //   });
+    // Check if wallet balance is sufficient
+    if (sender.walletBalance < dto.amount) {
+      throw new BadRequestException('Insufficient wallet balance');
+    }
 
-  //   // Initiate B2C transaction
-  //   const mpesaTransaction = await this.mpesaService.initiateB2C({
-  //     phoneNumber: dto.phoneNumber,
-  //     amount: dto.amount,
-  //     occasion: 'Wallet Withdrawal',
-  //   });
+    // Initiate B2C transaction
+    const mpesaTransaction = await this.mpesaService.initiateB2C(
+      {
+        phoneNumber: dto.phoneNumber,
+        amount: dto.amount,
+        occasion: `Withdrawal:${userId}`,
+        remarks: 'Wallet to M-Pesa Transfer',
+      },
+      userId,
+    );
 
-  //   // Update wallet transaction with mpesa transaction ID
-  //   await this.walletTransactionService.update(walletTransaction._id, {
-  //     mpesaTransactionId: mpesaTransaction._id,
-  //   });
+    // Deduct amount from wallet after successful transaction
+    await this.userModel.findByIdAndUpdate(userId, {
+      $inc: { walletBalance: -dto.amount },
+    });
 
-  //   return mpesaTransaction;
-  // }
+    // Create wallet transaction record
+    await this.walletTransactionService.create({
+      walletId: userId,
+      createTransactionDto: {
+        transactionType: 'withdrawal',
+        amount: dto.amount,
+        recipientDetails: {
+          recipientMpesaNumber: dto.phoneNumber,
+        },
+        description: 'Wallet to M-Pesa Transfer',
+      },
+    });
+
+    return mpesaTransaction;
+  }
 
   // async salaryAdvanceToWallet(userId: string, dto: SalaryAdvanceToWalletDto) {
   //   // Validate employee exists

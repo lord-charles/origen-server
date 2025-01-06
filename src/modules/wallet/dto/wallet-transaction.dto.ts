@@ -44,6 +44,7 @@ export class CreateWalletTransactionDto {
       'receive_from_mpesa',
       'transfer_to_wallet',
       'receive_from_advance',
+      'withdrawal',
     ],
   })
   @IsNotEmpty()
@@ -52,6 +53,7 @@ export class CreateWalletTransactionDto {
     'receive_from_mpesa',
     'transfer_to_wallet',
     'receive_from_advance',
+    'withdrawal',
   ])
   transactionType: string;
 
@@ -115,6 +117,7 @@ export class WalletTransactionFilterDto {
       'receive_from_mpesa',
       'transfer_to_wallet',
       'receive_from_advance',
+      'withdrawal',
     ],
     required: false,
   })
@@ -124,6 +127,7 @@ export class WalletTransactionFilterDto {
     'receive_from_mpesa',
     'transfer_to_wallet',
     'receive_from_advance',
+    'withdrawal',
   ])
   transactionType?: string;
 

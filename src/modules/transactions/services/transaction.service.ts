@@ -84,20 +84,27 @@ export class TransactionService {
         })),
 
         // Transform wallet transactions
-        ...walletTransactions.map((transaction) => ({
-          ...transaction,
-          _id: transaction._id?.toString(),
-          accountReference:
-            transaction.transactionId || transaction.description,
-          phoneNumber:
-            transaction.recipientDetails.recipientWalletId.toString() ||
-            transaction.recipientDetails.recipientMpesaNumber,
-          type: this.determineTransactionType(transaction),
-          reason: transaction.description,
-          date: transaction.transactionDate,
-          amount: transaction.amount,
-          status: transaction.status,
-        })),
+        ...walletTransactions.map((transaction) => {
+          // Get recipient details safely
+          const recipientDetails = transaction.recipientDetails || {};
+          const recipientId = recipientDetails.recipientWalletId;
+          const recipientPhone = recipientDetails.recipientMpesaNumber;
+
+          return {
+            ...transaction,
+            _id: transaction._id?.toString(),
+            accountReference:
+              transaction.transactionId || transaction.description || 'N/A',
+            phoneNumber: recipientId
+              ? recipientId.toString()
+              : recipientPhone || 'N/A',
+            type: this.determineTransactionType(transaction),
+            reason: transaction.description || 'N/A',
+            date: transaction.transactionDate,
+            amount: transaction.amount,
+            status: transaction.status,
+          };
+        }),
 
         // Transform loan transactions
         ...loanTransactions.map((transaction) => ({
@@ -139,6 +146,7 @@ export class TransactionService {
   }
 
   private determineTransactionType(transaction: any): TransactionType {
+    if (!transaction) return null;
     if (transaction.transactionType === 'paybill')
       return TransactionType.MPESA_PAYBILL;
     if (transaction.transactionType === 'b2c') return TransactionType.MPESA_B2C;
@@ -150,6 +158,8 @@ export class TransactionService {
       return TransactionType.WALLET_TRANSFER;
     if (transaction.transactionType === 'receive_from_advance')
       return TransactionType.WALLET_RECEIVE_ADVANCE;
+    if (transaction.transactionType === 'withdrawal')
+      return TransactionType.WALLET_WITHDRAWAL;
     if (transaction.purpose) return TransactionType.LOAN_DISBURSEMENT;
     return null;
   }
