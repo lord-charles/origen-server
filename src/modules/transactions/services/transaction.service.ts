@@ -74,6 +74,8 @@ export class TransactionService {
         ...mpesaTransactions.map((transaction) => ({
           ...transaction,
           _id: transaction._id?.toString(),
+          accountReference:
+            transaction.transactionId || transaction.accountReference,
           type: this.determineTransactionType(transaction),
           reason: transaction.transactionId || transaction.accountReference,
           date: transaction.createdAt,
