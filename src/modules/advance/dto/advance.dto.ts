@@ -12,6 +12,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { Types } from 'mongoose';
+import { PaymentMethod } from '../enums/payment-method.enum';
 
 export class CreateAdvanceDto {
   @ApiProperty({
@@ -50,6 +51,17 @@ export class CreateAdvanceDto {
   @IsString({ message: 'Comments must be a string' })
   @MaxLength(500, { message: 'Comments cannot exceed 500 characters' })
   comments?: string;
+
+  @ApiProperty({
+    description: 'Preferred payment method for disbursement',
+    enum: PaymentMethod,
+    example: PaymentMethod.MPESA,
+    default: PaymentMethod.MPESA,
+    required: false,
+  })
+  @IsOptional()
+  @IsEnum(PaymentMethod, { message: 'Invalid payment method' })
+  preferredPaymentMethod?: PaymentMethod;
 }
 
 export class UpdateAdvanceStatusDto {

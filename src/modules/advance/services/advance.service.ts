@@ -19,6 +19,7 @@ import {
   SystemConfig,
   SystemConfigDocument,
 } from '../../system-config/schemas/system-config.schema';
+import { PaymentMethod } from '../enums/payment-method.enum';
 
 @Injectable()
 export class AdvanceService {
@@ -41,12 +42,34 @@ export class AdvanceService {
     // Check if employee exists and has base salary set
     const employee = await this.userModel
       .findById(employeeId)
-      .select('baseSalary');
+      .select('baseSalary phoneNumber bankDetails');
     if (!employee) {
       throw new NotFoundException('Employee not found');
     }
     if (!employee.baseSalary) {
       throw new BadRequestException('Employee base salary not set');
+    }
+
+    // Validate payment method requirements if specified
+    const paymentMethod = createAdvanceDto.preferredPaymentMethod;
+    if (paymentMethod) {
+      switch (paymentMethod) {
+        case PaymentMethod.MPESA:
+          if (!employee.phoneNumber) {
+            throw new BadRequestException(
+              'Phone number required for M-Pesa disbursement',
+            );
+          }
+          break;
+        case PaymentMethod.BANK:
+          if (!employee.bankDetails?.accountNumber) {
+            throw new BadRequestException(
+              'Bank account details required for bank disbursement',
+            );
+          }
+          break;
+        // WALLET doesn't need additional validation as all employees have a wallet
+      }
     }
 
     // Check if employee has any pending or approved advances

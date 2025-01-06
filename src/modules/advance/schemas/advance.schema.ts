@@ -1,6 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import { ApiProperty } from '@nestjs/swagger';
+import { PaymentMethod } from '../enums/payment-method.enum';
 
 export type AdvanceDocument = Advance & Document;
 
@@ -109,6 +110,19 @@ export class Advance {
   })
   @Prop({ type: Types.ObjectId, ref: 'User' })
   approvedBy?: Types.ObjectId;
+
+  @ApiProperty({
+    description: 'Preferred payment method for disbursement',
+    example: PaymentMethod.MPESA,
+    enum: PaymentMethod,
+    default: PaymentMethod.MPESA,
+  })
+  @Prop({
+    type: String,
+    enum: PaymentMethod,
+    default: PaymentMethod.MPESA,
+  })
+  preferredPaymentMethod?: PaymentMethod;
 
   @ApiProperty({
     description: 'Administrator handling the disbursement (if applicable)',
