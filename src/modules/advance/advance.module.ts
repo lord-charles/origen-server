@@ -1,7 +1,7 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { AdvanceController } from './advance.controller';
-import { AdvanceService } from './advance.service';
+import { AdvanceController } from './controllers/advance.controller';
+import { AdvanceService } from './services/advance.service';
 import { Advance, AdvanceSchema } from './schemas/advance.schema';
 import { User, UserSchema } from '../auth/schemas/user.schema';
 import {

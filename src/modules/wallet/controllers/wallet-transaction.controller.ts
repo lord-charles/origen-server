@@ -18,22 +18,24 @@ import {
   ApiBearerAuth,
   ApiParam,
 } from '@nestjs/swagger';
-import { WalletTransactionService } from './wallet-transaction.service';
+import { WalletTransactionService } from '../services/wallet-transaction.service';
 import {
   CreateWalletTransactionDto,
   UpdateTransactionStatusDto,
   WalletTransactionFilterDto,
-} from './dto/wallet-transaction.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+} from '../dto/wallet-transaction.dto';
 import { Request } from 'express';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 
 @ApiTags('Wallet Transactions')
 @ApiBearerAuth()
 @UseGuards(JwtAuthGuard)
 @Controller('wallet-transactions')
 export class WalletTransactionController {
-  constructor(private readonly walletTransactionService: WalletTransactionService) {}
+  constructor(
+    private readonly walletTransactionService: WalletTransactionService,
+  ) {}
 
   @Post()
   @HttpCode(HttpStatus.CREATED)
@@ -47,13 +49,18 @@ export class WalletTransactionController {
     @Body() createTransactionDto: CreateWalletTransactionDto,
   ) {
     const walletId = (req.user as any)._id;
-    return this.walletTransactionService.create(walletId, createTransactionDto);
+    return this.walletTransactionService.create({
+      walletId,
+      createTransactionDto,
+    });
   }
 
   @Get()
   @Roles('admin', 'hr')
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get all wallet transactions with optional filters' })
+  @ApiOperation({
+    summary: 'Get all wallet transactions with optional filters',
+  })
   @ApiResponse({
     status: 200,
     description: 'Returns all transactions matching the filters',

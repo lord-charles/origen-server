@@ -9,12 +9,12 @@ import { Model, Types } from 'mongoose';
 import {
   WalletTransaction,
   WalletTransactionDocument,
-} from './schemas/wallet-transaction.schema';
+} from '../schemas/wallet-transaction.schema';
 import {
   CreateWalletTransactionDto,
   UpdateTransactionStatusDto,
   WalletTransactionFilterDto,
-} from './dto/wallet-transaction.dto';
+} from '../dto/wallet-transaction.dto';
 import { generateTransactionId } from 'src/utils/transaction.utils';
 
 @Injectable()
@@ -24,10 +24,13 @@ export class WalletTransactionService {
     private readonly walletTransactionModel: Model<WalletTransactionDocument>,
   ) {}
 
-  async create(
-    walletId: string,
-    createTransactionDto: CreateWalletTransactionDto,
-  ): Promise<WalletTransaction> {
+  async create({
+    walletId,
+    createTransactionDto,
+  }: {
+    walletId: string;
+    createTransactionDto: CreateWalletTransactionDto;
+  }): Promise<WalletTransaction> {
     try {
       // Generate unique transaction ID
       const transactionId = generateTransactionId();

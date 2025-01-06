@@ -5,20 +5,20 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Advance, AdvanceDocument } from './schemas/advance.schema';
-import { CreateAdvanceDto } from './dto/advance.dto';
-import { UpdateAdvanceStatusDto } from './dto/advance.dto';
-import { AdvanceFilterDto } from './dto/advance.dto';
+import { Advance, AdvanceDocument } from '../schemas/advance.schema';
+import { CreateAdvanceDto } from '../dto/advance.dto';
+import { UpdateAdvanceStatusDto } from '../dto/advance.dto';
+import { AdvanceFilterDto } from '../dto/advance.dto';
 import {
   AdvanceCalculationResponseDto,
   MonthlyAdvanceSummaryDto,
   DailyAdvanceDto,
-} from './dto/advance-calculation.dto';
-import { User, UserDocument } from '../auth/schemas/user.schema';
+} from '../dto/advance-calculation.dto';
+import { User, UserDocument } from '../../auth/schemas/user.schema';
 import {
   SystemConfig,
   SystemConfigDocument,
-} from '../system-config/schemas/system-config.schema';
+} from '../../system-config/schemas/system-config.schema';
 
 @Injectable()
 export class AdvanceService {

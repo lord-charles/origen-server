@@ -276,6 +276,13 @@ export class MpesaService {
     // Handle B2C callback
     else if (callbackData.Result) {
       return this.handleB2CCallback(callbackData);
+    }
+    // Handle direct Pay Bill callback
+    else if (
+      callbackData.TransactionType === 'Pay Bill' &&
+      callbackData.BillRefNumber
+    ) {
+      return this.handlePayBillCallback(callbackData);
     } else {
       throw new Error('Unknown callback type');
     }
@@ -447,6 +454,49 @@ export class MpesaService {
     } catch (error) {
       this.logger.error('Error processing B2C callback:', error);
       throw new Error(`Failed to process B2C callback: ${error.message}`);
+    }
+  }
+
+  private async handlePayBillCallback(callbackData: any) {
+    try {
+      const { BillRefNumber, TransAmount } = callbackData;
+
+      // Extract user ID from BillRefNumber (format: "mpesa-to-wallet:userId")
+      const userId = BillRefNumber.split(':')[1];
+
+      if (!userId) {
+        throw new Error('Invalid BillRefNumber format');
+      }
+
+      // Find the user
+      const user = await this.employeeModel.findById(userId);
+      if (!user) {
+        throw new Error('User not found');
+      }
+
+      // Convert TransAmount to number and update wallet balance
+      const amount = parseFloat(TransAmount);
+      if (isNaN(amount)) {
+        throw new Error('Invalid transaction amount');
+      }
+
+      // Update user's wallet balance
+      const updatedUser = await this.employeeModel.findByIdAndUpdate(
+        userId,
+        { $inc: { walletBalance: amount } },
+        { new: true },
+      );
+
+      return {
+        status: 'success',
+        message: 'Payment processed successfully',
+      };
+    } catch (error) {
+      this.logger.error(
+        `Failed to process Pay Bill callback: ${error.message}`,
+        error.stack,
+      );
+      throw error;
     }
   }
 

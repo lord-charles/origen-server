@@ -18,18 +18,18 @@ import {
   ApiBearerAuth,
   ApiParam,
 } from '@nestjs/swagger';
-import { AdvanceService } from './advance.service';
+import { AdvanceService } from '../services/advance.service';
 import {
   CreateAdvanceDto,
   UpdateAdvanceStatusDto,
   AdvanceFilterDto,
-} from './dto/advance.dto';
+} from '../dto/advance.dto';
 import {
   AdvanceCalculationResponseDto,
   MonthlyAdvanceSummaryDto,
-} from './dto/advance-calculation.dto';
-import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
-import { Roles } from '../auth/decorators/roles.decorator';
+} from '../dto/advance-calculation.dto';
+import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
+import { Roles } from '../../auth/decorators/roles.decorator';
 import { Request } from 'express';
 
 @ApiTags('Advances')
