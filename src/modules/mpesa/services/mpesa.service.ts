@@ -10,6 +10,7 @@ import {
 import { InitiateB2CDto, InitiateC2BDto } from '../dtos/mpesa.dto';
 import { User, UserDocument } from 'src/modules/auth/schemas/user.schema';
 import { HttpException, HttpStatus } from '@nestjs/common';
+import { Types } from 'mongoose';
 
 @Injectable()
 export class MpesaService {
@@ -119,9 +120,9 @@ export class MpesaService {
         JSON.stringify(response.data, null, 2),
       );
 
-      // For C2B, always use the authenticated user's ID
+      // For C2B, always use the authenticated user's ID as ObjectId
       const transaction = await this.mpesaModel.create({
-        employee: employeeId, // Use the authenticated user's ID for C2B
+        employee: new Types.ObjectId(employeeId),
         transactionType: 'paybill',
         amount: dto.amount,
         phoneNumber: dto.phoneNumber,
@@ -457,6 +458,7 @@ export class MpesaService {
     }
   }
 
+  //update amount (recharge wallet)
   private async handlePayBillCallback(callbackData: any) {
     try {
       const { BillRefNumber, TransAmount } = callbackData;
@@ -481,7 +483,7 @@ export class MpesaService {
       }
 
       // Update user's wallet balance
-      const updatedUser = await this.employeeModel.findByIdAndUpdate(
+      await this.employeeModel.findByIdAndUpdate(
         userId,
         { $inc: { walletBalance: amount } },
         { new: true },
@@ -508,7 +510,7 @@ export class MpesaService {
     endDate?: string,
   ) {
     try {
-      const query: any = { employee: employeeId };
+      const query: any = { employee: new Types.ObjectId(employeeId) };
 
       if (status) {
         query.status = status;
@@ -538,7 +540,7 @@ export class MpesaService {
   async getTransactionById(id: string, employeeId: string) {
     try {
       const transaction = await this.mpesaModel
-        .findOne({ _id: id, employee: employeeId })
+        .findOne({ _id: id, employee: new Types.ObjectId(employeeId) })
         .exec();
 
       if (!transaction) {
@@ -575,9 +577,9 @@ export class MpesaService {
         },
       );
 
-      // Create a record for the balance query
+      // Create a record for the balance query with ObjectId
       await this.mpesaModel.create({
-        employee: employeeId,
+        employee: new Types.ObjectId(employeeId),
         transactionType: 'balance_query',
         status: 'pending',
         conversationId: response.data.ConversationID,

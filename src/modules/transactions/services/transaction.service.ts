@@ -34,7 +34,7 @@ export class TransactionService {
 
       // Query paybill transactions with string userId
       const paybillTransactions = this.mpesaModel
-        .find({ employee: userId })
+        .find({ employee: new Types.ObjectId(userId) })
         .select(
           'transactionType amount phoneNumber status createdAt accountReference',
         )
