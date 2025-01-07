@@ -96,6 +96,8 @@ export class WalletPaymentService {
         'wallet transfer',
         updatedSender.walletBalance,
         updatedRecipient.walletBalance,
+        `${sender.firstName} ${sender.lastName}`,
+        `${recipient.firstName} ${recipient.lastName}`,
       );
 
       // Log the successful transaction

@@ -43,6 +43,8 @@ export class NotificationService {
     transactionType: string,
     senderBalance: number,
     recipientBalance: number,
+    senderName: string,
+    recipientName: string,
   ): Promise<void> {
     // Format amount to 2 decimal places
     const formattedAmount = amount.toLocaleString('en-KE', {
@@ -62,11 +64,11 @@ export class NotificationService {
     });
 
     // Send notification to sender
-    const senderMessage = `Your ${transactionType} transaction of KES ${formattedAmount} has been processed successfully. New wallet balance: KES ${formattedSenderBalance}. Thank you for using our service.`;
+    const senderMessage = `Your ${transactionType} transaction of KES ${formattedAmount} to ${recipientName} has been processed successfully. New wallet balance: KES ${formattedSenderBalance}. Thank you for using our service.`;
     await this.sendSMS(senderPhone, senderMessage);
 
     // Send notification to recipient
-    const recipientMessage = `You have received KES ${formattedAmount} via Innova ${transactionType}. New wallet balance: KES ${formattedRecipientBalance}. Thank you for using our service.`;
+    const recipientMessage = `You have received KES ${formattedAmount} from ${senderName} via Innova ${transactionType}. New wallet balance: KES ${formattedRecipientBalance}. Thank you for using our service.`;
     await this.sendSMS(recipientPhone, recipientMessage);
   }
 }
