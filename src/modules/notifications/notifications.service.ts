@@ -25,9 +25,17 @@ export class NotificationsService {
 
   async savePushToken(userId: string, token: string) {
     try {
-      if (!Expo.isExpoPushToken(token)) {
+      // Allow development tokens in non-production environment
+      const isDevelopment = process.env.NODE_ENV !== 'production';
+      const isDevToken = token.startsWith('SIMULATOR-DEV-TOKEN-');
+      
+      if (!isDevelopment && !Expo.isExpoPushToken(token)) {
         this.logger.error(`Invalid Expo push token: ${token}`);
         throw new Error('Invalid push token format');
+      }
+
+      if (isDevelopment && isDevToken) {
+        this.logger.warn(`Using development token: ${token}`);
       }
 
       const existingToken = await this.pushTokenModel.findOne({ userId });
@@ -41,7 +49,9 @@ export class NotificationsService {
       const newToken = new this.pushTokenModel({
         userId,
         token,
+        isActive: true
       });
+
       return newToken.save();
     } catch (error) {
       this.logger.error(`Error saving push token: ${error.message}`);
