@@ -74,15 +74,19 @@ export class WalletPaymentService {
         },
       });
 
-      // Update sender's wallet balance (deduct amount)
-      await this.userModel.findByIdAndUpdate(userId, {
-        $inc: { walletBalance: -dto.amount },
-      });
+      // Update sender's wallet balance (subtract amount)
+      const updatedSender = await this.userModel.findByIdAndUpdate(
+        userId,
+        { $inc: { walletBalance: -dto.amount } },
+        { new: true },
+      );
 
       // Update recipient's wallet balance (add amount)
-      await this.userModel.findByIdAndUpdate(dto.recipientWalletId, {
-        $inc: { walletBalance: dto.amount },
-      });
+      const updatedRecipient = await this.userModel.findByIdAndUpdate(
+        dto.recipientWalletId,
+        { $inc: { walletBalance: dto.amount } },
+        { new: true },
+      );
 
       // Send SMS notifications
       await this.notificationService.sendTransactionNotification(
@@ -90,6 +94,8 @@ export class WalletPaymentService {
         recipient.phoneNumber,
         dto.amount,
         'wallet transfer',
+        updatedSender.walletBalance,
+        updatedRecipient.walletBalance,
       );
 
       // Log the successful transaction
@@ -106,7 +112,8 @@ export class WalletPaymentService {
           description: transaction.description,
           timestamp: transaction.transactionDate,
           recipientName: `${recipient.firstName} ${recipient.lastName}`,
-          senderBalance: sender.walletBalance - dto.amount,
+          senderBalance: updatedSender.walletBalance,
+          recipientBalance: updatedRecipient.walletBalance,
         },
       };
     } catch (error) {

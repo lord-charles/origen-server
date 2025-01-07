@@ -11,12 +11,12 @@ export class NotificationService {
   async sendSMS(phoneNumber: string, message: string): Promise<boolean> {
     try {
       const response = await axios.post(
-        'https://sms.savvybulksms.com/api/services/sendsms/',
+        'https://sms.textsms.co.ke/api/services/sendsms/',
         {
-          apikey: '0c53f737571fcf0eb3b60a8a9bcbfd83',
-          partnerID: '8816',
+          apikey: 'c50496fde7254cad33ff43d3ce5d12cf',
+          partnerID: '7848',
           message: message,
-          shortcode: 'Savvy_sms',
+          shortcode: 'TextSMS',
           mobile: phoneNumber,
         },
       );
@@ -41,6 +41,8 @@ export class NotificationService {
     recipientPhone: string,
     amount: number,
     transactionType: string,
+    senderBalance: number,
+    recipientBalance: number,
   ): Promise<void> {
     // Format amount to 2 decimal places
     const formattedAmount = amount.toLocaleString('en-KE', {
@@ -48,12 +50,23 @@ export class NotificationService {
       maximumFractionDigits: 2,
     });
 
+    // Format balances
+    const formattedSenderBalance = senderBalance.toLocaleString('en-KE', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+    const formattedRecipientBalance = recipientBalance.toLocaleString('en-KE', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
     // Send notification to sender
-    const senderMessage = `Your ${transactionType} transaction of KES ${formattedAmount} has been processed successfully. Thank you for using our service.`;
+    const senderMessage = `Your ${transactionType} transaction of KES ${formattedAmount} has been processed successfully. New wallet balance: KES ${formattedSenderBalance}. Thank you for using our service.`;
     await this.sendSMS(senderPhone, senderMessage);
 
     // Send notification to recipient
-    const recipientMessage = `You have received KES ${formattedAmount} via ${transactionType}. Thank you for using our service.`;
+    const recipientMessage = `You have received KES ${formattedAmount} via Innova ${transactionType}. New wallet balance: KES ${formattedRecipientBalance}. Thank you for using our service.`;
     await this.sendSMS(recipientPhone, recipientMessage);
   }
 }
