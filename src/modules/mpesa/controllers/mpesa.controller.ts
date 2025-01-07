@@ -36,7 +36,7 @@ export class MpesaController {
   constructor(private readonly mpesaService: MpesaService) {}
 
   @Post('initiate-c2b')
-  // @ApiExcludeEndpoint()
+  @ApiExcludeEndpoint()
   @ApiOperation({
     summary: 'Initiate C2B Mpesa payment',
     description:
@@ -85,7 +85,7 @@ export class MpesaController {
   }
 
   @Post('initiate-b2c')
-  // @ApiExcludeEndpoint()
+  @ApiExcludeEndpoint()
   @ApiOperation({ summary: 'Initiate B2C Mpesa payment' })
   async initiateB2C(@Body() dto: InitiateB2CDto, @Request() req) {
     return this.mpesaService.initiateB2C(dto, req.user.id);
