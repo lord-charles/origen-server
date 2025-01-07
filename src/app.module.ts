@@ -8,6 +8,7 @@ import { DatabaseModule } from './database/database.module';
 import { LoggerMiddleware } from './middleware/logger.middleware';
 import { TransactionModule } from './modules/transactions/transaction.module';
 import { SystemConfigModule } from './modules/system-config/system-config.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
 
 @Module({
   imports: [
@@ -19,6 +20,7 @@ import { SystemConfigModule } from './modules/system-config/system-config.module
     DatabaseModule,
     TransactionModule,
     SystemConfigModule,
+    NotificationsModule,
   ],
   controllers: [],
   providers: [],
