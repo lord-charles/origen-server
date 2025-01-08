@@ -12,6 +12,7 @@ import {
   ValidateNested,
   IsArray,
   IsPositive,
+  IsDateString,
 } from 'class-validator';
 import { Type } from 'class-transformer';
 
@@ -136,7 +137,7 @@ export class CreateUserDto {
   nationalId: string;
 
   @ApiProperty({ description: '4-digit authentication PIN', example: '1234' })
-  @IsNotEmpty()
+  @IsOptional()
   @MinLength(4)
   @MaxLength(4)
   @IsString()
@@ -168,6 +169,14 @@ export class CreateUserDto {
   @IsOptional()
   @IsString()
   employeeId?: string;
+
+  @ApiProperty({
+    description: 'Date of birth of the employee',
+    example: '',
+  })
+  @IsOptional()
+  @IsDateString()
+  dateOfBirth?: string;
 
   @ApiProperty({
     description: 'Department the employee belongs to',
