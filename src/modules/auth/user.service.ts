@@ -16,13 +16,19 @@ import {
 import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { User, UserDocument } from './schemas/user.schema';
+import { NotificationService } from '../notifications/services/notification.service';
 
 @Injectable()
 export class UserService {
   constructor(
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private readonly jwtService: JwtService,
+    private readonly notificationService: NotificationService,
   ) {}
+
+  private generatePin(): string {
+    return Math.floor(1000 + Math.random() * 9000).toString();
+  }
 
   async register(createUserDto: CreateUserDto): Promise<User> {
     const existingUser = await this.userModel.findOne({
@@ -39,9 +45,11 @@ export class UserService {
       );
     }
 
-    const hashedPin = await bcrypt.hash(createUserDto.pin, 10);
+    // Generate a 4-digit PIN
+    const generatedPin = this.generatePin();
+    const hashedPin = await bcrypt.hash(generatedPin, 10);
 
-    // Create a new user object without the roles and pin
+    // Create a new user object without the roles
     const { roles, pin, ...userData } = createUserDto;
 
     // Create the new user with explicit roles assignment
@@ -51,7 +59,14 @@ export class UserService {
       roles: Array.isArray(roles) && roles.length > 0 ? roles : ['employee'],
     });
 
-    return newUser.save();
+    // Save the user
+    const savedUser = await newUser.save();
+
+    // Send PIN via SMS
+    const message = `Your Innova App login PIN is: ${generatedPin}. Please keep this PIN secure and do not share it with anyone.`;
+    await this.notificationService.sendSMS(savedUser.phoneNumber, message);
+
+    return savedUser;
   }
 
   async login(

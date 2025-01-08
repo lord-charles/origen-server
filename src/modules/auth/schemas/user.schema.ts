@@ -134,10 +134,10 @@ export class User {
   @ApiProperty({
     description: 'Payment method used by the employee',
     example: 'bank',
-    enum: ['bank', 'mpesa', 'cash'],
+    enum: ['bank', 'mpesa', 'cash', 'wallet'],
   })
-  @Prop({ required: true })
-  paymentMethod: 'bank' | 'mpesa' | 'cash';
+  @Prop({ required: false })
+  paymentMethod?: 'bank' | 'mpesa' | 'cash' | 'wallet';
 
   @ApiProperty({
     description: 'Roles assigned in the app',
@@ -154,8 +154,8 @@ export class User {
     description: 'Employee ID or staff number',
     example: 'EMP2024001',
   })
-  @Prop({ required: true, unique: true })
-  employeeId: string;
+  @Prop({ required: false, unique: true })
+  employeeId?: string;
 
   @ApiProperty({
     description: 'Department the employee belongs to',
@@ -203,36 +203,65 @@ export class User {
   nssfDeduction?: number;
 
   @ApiProperty({ description: 'Emergency contact details' })
-  @Prop({ required: true, type: EmergencyContact })
-  emergencyContact: EmergencyContact;
+  @Prop({ required: false, type: EmergencyContact })
+  emergencyContact?: EmergencyContact;
 
   @ApiProperty({
     description: 'List of all advance applications made by the employee',
     example: ['64abc123def4567890ghijk1', '64abc123def4567890ghijk2'],
   })
   @Prop({ type: [{ type: Types.ObjectId, ref: 'Advance' }] })
-  advances: Types.ObjectId[];
+  advances?: Types.ObjectId[];
 
   @ApiProperty({
     description: 'List of all loan applications made by the employee',
     example: ['64abc123def4567890ghijk3', '64abc123def4567890ghijk4'],
   })
   @Prop({ type: [{ type: Types.ObjectId, ref: 'Loan' }] })
-  loans: Types.ObjectId[];
+  loans?: Types.ObjectId[];
 
   @ApiProperty({
     description: 'List of all Mpesa transactions linked to the employee',
     example: ['64abc123def4567890ghijk5', '64abc123def4567890ghijk6'],
   })
   @Prop({ type: [{ type: Types.ObjectId, ref: 'MpesaTransaction' }] })
-  mpesaTransactions: Types.ObjectId[];
+  mpesaTransactions?: Types.ObjectId[];
 
   @ApiProperty({
     description: 'List of all wallet transactions linked to the employee',
     example: ['64abc123def4567890ghijk5', '64abc123def4567890ghijk6'],
   })
   @Prop({ type: [{ type: Types.ObjectId, ref: 'WalletTransaction' }] })
-  walletTransactions: Types.ObjectId[];
+  walletTransactions?: Types.ObjectId[];
 }
 
 export const UserSchema = SchemaFactory.createForClass(User);
+
+@Schema({ _id: false, timestamps: true })
+export class Counter {
+  @ApiProperty({ required: true })
+  @Prop({ required: true })
+  name: string;
+
+  @ApiProperty({ required: true, default: 0 })
+  @Prop({ required: true, default: 0 })
+  sequenceValue: number;
+}
+
+export const CounterSchema = SchemaFactory.createForClass(Counter);
+
+UserSchema.pre<UserDocument>('save', async function (next) {
+  if (!this.employeeId) {
+    const counter = await this.db
+      .model('Counter', CounterSchema)
+      .findOneAndUpdate(
+        { name: 'employeeId' },
+        { $inc: { sequenceValue: 1 } },
+        { new: true, upsert: true },
+      );
+    this.employeeId = `EMP-${counter.sequenceValue
+      .toString()
+      .padStart(3, '0')}`;
+  }
+  next();
+});

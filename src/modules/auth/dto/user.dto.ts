@@ -60,25 +60,25 @@ class EmergencyContactDto {
     description: 'Name of the emergency contact',
     example: 'John Doe',
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  name: string;
+  name?: string;
 
   @ApiProperty({
     description: 'Relationship to the employee',
     example: 'Spouse',
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  relationship: string;
+  relationship?: string;
 
   @ApiProperty({
     description: 'Primary phone number',
     example: '254712345678',
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  phoneNumber: string;
+  phoneNumber?: string;
 
   @ApiProperty({
     description: 'Alternative phone number (if any)',
@@ -115,9 +115,9 @@ export class CreateUserDto {
     description: 'Email address of the employee',
     example: 'jane.wanjiku@company.com',
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsEmail()
-  email: string;
+  email?: string;
 
   @ApiProperty({
     description: 'Phone number for Mpesa transactions',
@@ -145,11 +145,11 @@ export class CreateUserDto {
   @ApiProperty({
     description: 'Payment method used by the employee',
     example: 'bank',
-    enum: ['bank', 'mpesa', 'cash'],
+    enum: ['bank', 'mpesa', 'cash', 'wallet'],
   })
-  @IsNotEmpty()
-  @IsEnum(['bank', 'mpesa', 'cash'])
-  paymentMethod: 'bank' | 'mpesa' | 'cash';
+  @IsOptional()
+  @IsEnum(['bank', 'mpesa', 'cash', 'wallet'])
+  paymentMethod?: 'bank' | 'mpesa' | 'cash' | 'wallet';
 
   @ApiProperty({
     description: 'Roles assigned in the app',
@@ -165,15 +165,15 @@ export class CreateUserDto {
     description: 'Employee ID or staff number',
     example: 'EMP2024001',
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  employeeId: string;
+  employeeId?: string;
 
   @ApiProperty({
     description: 'Department the employee belongs to',
     example: 'Engineering',
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
   department: string;
 
@@ -260,10 +260,10 @@ export class CreateUserDto {
     description: 'Emergency contact details',
     type: EmergencyContactDto,
   })
-  @IsNotEmpty()
+  @IsOptional()
   @ValidateNested()
   @Type(() => EmergencyContactDto)
-  emergencyContact: EmergencyContactDto;
+  emergencyContact?: EmergencyContactDto;
 }
 
 export class UpdateUserDto extends PartialType(CreateUserDto) {}
