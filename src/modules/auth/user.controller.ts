@@ -152,7 +152,7 @@ export class UserController {
   }
 
   // Delete user
-  @Roles('admin')
+  // @Roles('admin')
   @Delete('/user/:id')
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({
