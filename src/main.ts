@@ -40,7 +40,7 @@ async function bootstrap() {
     .build();
 
   const document = SwaggerModule.createDocument(app, config);
-  
+
   // Setup Swagger under the global prefix path
   SwaggerModule.setup('origen/api/docs', app, document, {
     swaggerOptions: {
@@ -55,16 +55,20 @@ async function bootstrap() {
     customCss: '.swagger-ui .topbar { display: none }', // Hide the top bar
   });
 
-  const port = configService.get<number>('PORT', 3000);
+  const port = configService.get<number>('PORT', 4000);
   await app.listen(port);
-  
+
   // Log the URLs
   const logger = new Logger('Bootstrap');
   logger.log(`Server is running on: http://localhost:${port}`);
-  logger.log(`API Documentation available at: http://localhost:${port}/origen/api/docs`);
+  logger.log(
+    `API Documentation available at: http://localhost:${port}/origen/api/docs`,
+  );
   logger.log(`API Base URL: http://localhost:${port}/origen/api`);
-  
+
   // Log example endpoint
-  logger.log(`Example endpoint: http://localhost:${port}/origen/api/wallet-transactions`);
+  logger.log(
+    `Example endpoint: http://localhost:${port}/origen/api/wallet-transactions`,
+  );
 }
 bootstrap();
