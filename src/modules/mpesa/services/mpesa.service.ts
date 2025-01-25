@@ -358,7 +358,15 @@ export class MpesaService {
               employee: employeeId,
               status: { $in: ['disbursed', 'repaying'] },
               $expr: {
-                $lt: ['$amountRepaid', { $add: ['$amount', '$totalInterest'] }],
+                $lt: [
+                  '$amountRepaid',
+                  {
+                    $add: [
+                      '$amount',
+                      { $subtract: ['$totalRepayment', '$amount'] },
+                    ],
+                  },
+                ],
               },
             })
             .sort({ approvedDate: 1 });
@@ -372,7 +380,7 @@ export class MpesaService {
 
               const currentDue =
                 advance.amount +
-                advance.totalInterest -
+                (advance.totalRepayment - advance.amount) -
                 (advance.amountRepaid || 0);
               const amountToRepay = Math.min(remainingAmount, currentDue);
 
@@ -380,7 +388,8 @@ export class MpesaService {
               const updatedAmountRepaid =
                 (advance.amountRepaid || 0) + amountToRepay;
               const isFullyRepaid =
-                updatedAmountRepaid >= advance.amount + advance.totalInterest;
+                updatedAmountRepaid >=
+                advance.amount + (advance.totalRepayment - advance.amount);
 
               await this.advanceModel.findByIdAndUpdate(advance._id, {
                 $inc: { amountRepaid: amountToRepay },
@@ -535,36 +544,128 @@ export class MpesaService {
     }
   }
 
-  //update amount (recharge wallet)
   private async handlePayBillCallback(callbackData: any) {
     try {
       const { BillRefNumber, TransAmount } = callbackData;
 
-      // Extract user ID from BillRefNumber (format: "mpesa-to-wallet:userId")
-      const userId = BillRefNumber.split(':')[1];
+      // Create transaction record
+      const transaction = await this.mpesaModel.create({
+        transactionType: callbackData.TransactionType,
+        transId: callbackData.TransID,
+        transTime: callbackData.TransTime,
+        transAmount: callbackData.TransAmount,
+        businessShortCode: callbackData.BusinessShortCode,
+        billRefNumber: callbackData.BillRefNumber,
+        invoiceNumber: callbackData.InvoiceNumber,
+        orgAccountBalance: callbackData.OrgAccountBalance,
+        thirdPartyTransId: callbackData.ThirdPartyTransID,
+        phoneNumber: callbackData.MSISDN,
+        firstName: callbackData.FirstName,
+        middleName: callbackData.MiddleName,
+        lastName: callbackData.LastName,
+        status: 'completed',
+      });
 
-      if (!userId) {
-        throw new Error('Invalid BillRefNumber format');
-      }
-
-      // Find the user
-      const user = await this.employeeModel.findById(userId);
-      if (!user) {
-        throw new Error('User not found');
-      }
-
-      // Convert TransAmount to number and update wallet balance
+      // Convert TransAmount to number
       const amount = parseFloat(TransAmount);
       if (isNaN(amount)) {
         throw new Error('Invalid transaction amount');
       }
 
-      // Update user's wallet balance
-      await this.employeeModel.findByIdAndUpdate(
-        userId,
-        { $inc: { walletBalance: amount } },
-        { new: true },
-      );
+      // Handle advance repayment if BillRefNumber starts with repay_advance:
+      if (BillRefNumber?.startsWith('repay_advance:')) {
+        const employeeId = BillRefNumber.split(':')[1];
+        this.logger.log('repaing advance for employee', employeeId);
+
+        // Get all advances that need repayment
+        const repayableAdvances = await this.advanceModel
+          .find({
+            employee: employeeId,
+            status: { $in: ['disbursed', 'repaying'] },
+            $expr: {
+              $lt: [
+                '$amountRepaid',
+                {
+                  $add: [
+                    '$amount',
+                    { $subtract: ['$totalRepayment', '$amount'] },
+                  ],
+                },
+              ],
+            },
+          })
+          .sort({ approvedDate: 1 });
+
+        if (repayableAdvances && repayableAdvances.length > 0) {
+          let remainingAmount: number = amount;
+
+          // Update each advance with the repaid amount, starting from the oldest
+          for (const advance of repayableAdvances) {
+            if (remainingAmount <= 0) break;
+
+            const currentDue =
+              advance.amount +
+              (advance.totalRepayment - advance.amount) -
+              (advance.amountRepaid || 0);
+            const amountToRepay = Math.min(remainingAmount, currentDue);
+
+            // Update advance record
+            const updatedAmountRepaid =
+              (advance.amountRepaid || 0) + amountToRepay;
+            const isFullyRepaid =
+              updatedAmountRepaid >=
+              advance.amount + (advance.totalRepayment - advance.amount);
+
+            await this.advanceModel.findByIdAndUpdate(advance._id, {
+              $inc: { amountRepaid: amountToRepay },
+              $set: {
+                status: isFullyRepaid ? 'repaid' : 'repaying',
+                lastRepaymentDate: new Date(),
+              },
+            });
+
+            remainingAmount -= amountToRepay;
+          }
+
+          // Create wallet transaction record
+          await this.walletTransactionService.create({
+            walletId: employeeId,
+            createTransactionDto: {
+              transactionType: 'advance_repayment',
+              amount: amount,
+              transactionId: transaction._id.toString(),
+              description: 'Advance Repayment via M-PESA',
+            },
+          });
+
+          // Send notification
+          await this.notificationService.sendSMS(
+            callbackData.MSISDN,
+            `Your advance repayment of KES ${Number(amount).toLocaleString()} has been received. Thank you for using Innova Services.`,
+          );
+        }
+      } else {
+        this.logger.log('recharging advance for employee');
+
+        // Handle wallet recharge (existing logic)
+        const userId = BillRefNumber.split(':')[1];
+        if (!userId) {
+          throw new Error('Invalid BillRefNumber format');
+        }
+
+        // Find the user
+        const user = await this.employeeModel.findById(userId);
+        if (!user) {
+          throw new Error('User not found');
+        }
+
+        // Update user's wallet balance
+        await this.employeeModel.findByIdAndUpdate(
+          userId,
+          { $inc: { walletBalance: amount } },
+          { new: true },
+        );
+      }
 
       return {
         status: 'success',

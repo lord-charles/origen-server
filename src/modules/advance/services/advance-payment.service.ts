@@ -169,8 +169,7 @@ export class AdvancePaymentService {
 
     // Filter advances that still need repayment
     const repayableAdvances = allAdvances.filter(
-      (advance) =>
-        advance.amountRepaid < advance.amount + advance.totalInterest,
+      (advance) => advance.amountRepaid < advance.totalRepayment,
     );
 
     if (repayableAdvances.length === 0) {

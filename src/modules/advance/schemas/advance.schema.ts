@@ -43,13 +43,6 @@ export class Advance {
   purpose: string;
 
   @ApiProperty({
-    description: 'Total interest charged on the advance in KES',
-    example: 500,
-  })
-  @Prop({ type: Number, default: 0 })
-  totalInterest: number;
-
-  @ApiProperty({
     description: 'Status of the advance request',
     example: 'pending',
     enum: ['pending', 'approved', 'declined', 'repaying', 'repaid'],
