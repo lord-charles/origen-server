@@ -9,11 +9,9 @@ import { Model, Types } from 'mongoose';
 import { MpesaService } from '../../mpesa/services/mpesa.service';
 import { WalletTransactionService } from './wallet-transaction.service';
 import { User, UserDocument } from '../../auth/schemas/user.schema';
-import { Advance, AdvanceDocument } from '../../advance/schemas/advance.schema';
 import { NotificationService } from '../../notifications/services/notification.service';
 import {
   MpesaToWalletDto,
-  SalaryAdvanceToWalletDto,
   WalletToMpesaDto,
   WalletToWalletDto,
 } from '../dto/wallet-payment.dto';

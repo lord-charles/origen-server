@@ -11,6 +11,12 @@ import { InitiateB2CDto, InitiateC2BDto } from '../dtos/mpesa.dto';
 import { User, UserDocument } from 'src/modules/auth/schemas/user.schema';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { Types } from 'mongoose';
+import { WalletTransactionService } from 'src/modules/wallet/services/wallet-transaction.service';
+import { NotificationService } from 'src/modules/notifications/services/notification.service';
+import {
+  Advance,
+  AdvanceDocument,
+} from 'src/modules/advance/schemas/advance.schema';
 
 @Injectable()
 export class MpesaService {
@@ -32,6 +38,10 @@ export class MpesaService {
     private mpesaModel: Model<MpesaTransactionDocument>,
     @InjectModel(User.name)
     private employeeModel: Model<UserDocument>,
+    @InjectModel(Advance.name)
+    private advanceModel: Model<AdvanceDocument>,
+    private walletTransactionService: WalletTransactionService,
+    private notificationService: NotificationService,
     private configService: ConfigService,
   ) {
     this.baseUrl = this.configService.get<string>('MPESA_BASE_URL');
@@ -291,6 +301,8 @@ export class MpesaService {
 
   private async handleC2BCallback(callbackData: any) {
     const { Body } = callbackData;
+    console.log('Received C2B callback data:', JSON.stringify(Body, null, 2));
+
     const {
       MerchantRequestID,
       CheckoutRequestID,
@@ -334,6 +346,67 @@ export class MpesaService {
         updateData.callbackPhoneNumber = metadataMap
           .get('PhoneNumber')
           ?.toString();
+
+        // Handle advance repayment if this is an advance repayment transaction
+        if (transaction.accountReference?.startsWith('repay_advance:')) {
+          const employeeId = transaction.accountReference.split(':')[1];
+          const amount = Number(metadataMap.get('Amount')) || 0;
+
+          // Get all advances that need repayment
+          const repayableAdvances = await this.advanceModel
+            .find({
+              employee: employeeId,
+              status: { $in: ['disbursed', 'repaying'] },
+              amountRepaid: { $lt: '$totalRepayment' },
+            })
+            .sort({ approvedDate: 1 });
+
+          if (repayableAdvances && repayableAdvances.length > 0) {
+            let remainingAmount: number = amount;
+
+            // Update each advance with the repaid amount, starting from the oldest
+            for (const advance of repayableAdvances) {
+              if (remainingAmount <= 0) break;
+
+              const currentDue =
+                advance.totalRepayment - (advance.amountRepaid || 0);
+              const amountToRepay = Math.min(remainingAmount, currentDue);
+
+              // Update advance record
+              const updatedAmountRepaid =
+                (advance.amountRepaid || 0) + amountToRepay;
+              const isFullyRepaid =
+                updatedAmountRepaid >= advance.totalRepayment;
+
+              await this.advanceModel.findByIdAndUpdate(advance._id, {
+                $inc: { amountRepaid: amountToRepay },
+                $set: {
+                  status: isFullyRepaid ? 'repaid' : 'repaying',
+                  lastRepaymentDate: new Date(),
+                },
+              });
+
+              remainingAmount -= amountToRepay;
+            }
+
+            // Create wallet transaction record
+            await this.walletTransactionService.create({
+              walletId: employeeId,
+              createTransactionDto: {
+                transactionType: 'advance_repayment',
+                amount: amount,
+                transactionId: transaction._id.toString(),
+                description: 'Advance Repayment via M-PESA',
+              },
+            });
+
+            // Send notification
+            await this.notificationService.sendSMS(
+              transaction.phoneNumber,
+              `Your advance repayment of KES ${amount.toLocaleString()} has been received. Thank you for using Innova Services.`,
+            );
+          }
+        }
       }
 
       // Update the transaction

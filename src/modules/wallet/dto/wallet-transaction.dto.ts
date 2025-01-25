@@ -86,6 +86,15 @@ export class CreateWalletTransactionDto {
   @IsString()
   @MaxLength(255)
   description?: string;
+
+  @ApiProperty({
+    description: 'Reference ID for the transaction',
+    example: '64abc123def4567890ghijk0',
+    required: false,
+  })
+  @IsOptional()
+  @IsString()
+  transactionId?: string;
 }
 
 export class UpdateTransactionStatusDto {

@@ -29,11 +29,25 @@ export class Advance {
   amountRepaid: number;
 
   @ApiProperty({
+    description: 'Amount withdrawn from the approved advance in KES',
+    example: 0,
+  })
+  @Prop({ type: Number, default: 0 })
+  amountWithdrawn: number;
+
+  @ApiProperty({
     description: 'Purpose of the advance',
     example: 'Medical expenses',
   })
   @Prop({ type: String, required: true })
   purpose: string;
+
+  @ApiProperty({
+    description: 'Total interest charged on the advance in KES',
+    example: 500,
+  })
+  @Prop({ type: Number, default: 0 })
+  totalInterest: number;
 
   @ApiProperty({
     description: 'Status of the advance request',
