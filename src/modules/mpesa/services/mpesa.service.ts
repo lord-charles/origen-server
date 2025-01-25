@@ -520,9 +520,9 @@ export class MpesaService {
             // Update advance record
             const updatedAmountRepaid =
               (advance.amountRepaid || 0) + amountToRepay;
-            const isFullyRepaid =
-              updatedAmountRepaid >=
-              advance.amount + (advance.totalRepayment - advance.amount);
+
+            // Check if fully repaid by comparing with totalRepayment directly
+            const isFullyRepaid = updatedAmountRepaid >= advance.totalRepayment;
 
             await this.advanceModel.findByIdAndUpdate(advance._id, {
               $inc: { amountRepaid: amountToRepay },
