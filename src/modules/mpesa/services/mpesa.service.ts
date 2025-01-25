@@ -474,24 +474,19 @@ export class MpesaService {
     try {
       const { BillRefNumber, TransAmount } = callbackData;
 
-      // Create transaction record
-      const transaction = await this.mpesaModel.create({
-        transactionType: 'paybill', // Fixed enum value
-        transId: callbackData.TransID,
-        transTime: callbackData.TransTime,
-        amount: parseFloat(callbackData.TransAmount), // Add required amount field
-        employee: BillRefNumber?.split(':')[1], // Add required employee field from BillRefNumber
-        businessShortCode: callbackData.BusinessShortCode,
-        billRefNumber: callbackData.BillRefNumber,
-        invoiceNumber: callbackData.InvoiceNumber,
-        orgAccountBalance: callbackData.OrgAccountBalance,
-        thirdPartyTransId: callbackData.ThirdPartyTransID,
-        phoneNumber: callbackData.MSISDN,
-        firstName: callbackData.FirstName,
-        middleName: callbackData.MiddleName,
-        lastName: callbackData.LastName,
-        status: 'completed',
-      });
+      // // Create transaction record
+      // const transaction = await this.mpesaModel.create({
+      //   transactionType: 'paybill',
+      //   employee: new Types.ObjectId(BillRefNumber?.split(':')[1]),
+      //   amount: parseFloat(callbackData.TransAmount),
+      //   phoneNumber: callbackData.MSISDN,
+      //   accountReference: callbackData.BillRefNumber,
+      //   status: 'completed',
+      //   transactionId: callbackData.TransID,
+      //   transactionDate: callbackData.TransTime,
+      //   balance: callbackData.OrgAccountBalance,
+      //   receiverPartyPublicName: `${callbackData.FirstName} ${callbackData.MiddleName} ${callbackData.LastName}`.trim(),
+      // });
 
       // Convert TransAmount to number
       const amount = parseFloat(TransAmount);
@@ -508,7 +503,7 @@ export class MpesaService {
         const repayableAdvances = await this.advanceModel
           .find({
             employee: employeeId,
-            status: { $in: ['disbursed', 'repaying'] },
+            status: { $in: ['disbursed', 'repaying', 'approved'] },
             $expr: {
               $lt: [
                 '$amountRepaid',
@@ -522,7 +517,7 @@ export class MpesaService {
             },
           })
           .sort({ approvedDate: 1 });
-
+        console.log(repayableAdvances);
         if (repayableAdvances && repayableAdvances.length > 0) {
           let remainingAmount: number = amount;
 
@@ -553,18 +548,6 @@ export class MpesaService {
 
             remainingAmount -= amountToRepay;
           }
-
-          // Create wallet transaction record
-          await this.walletTransactionService.create({
-            walletId: employeeId,
-            createTransactionDto: {
-              transactionType: 'advance_repayment',
-              amount: amount,
-              transactionId: transaction._id.toString(),
-              description: 'Advance Repayment via M-PESA',
-            },
-          });
-
           // Send notification
           await this.notificationService.sendSMS(
             callbackData.MSISDN,
