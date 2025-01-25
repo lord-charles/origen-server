@@ -501,38 +501,40 @@ export class MpesaService {
 
         // Get all advances that need repayment
         console.log('Searching for advances with employeeId:', employeeId);
+
+        // First, verify the employee ID is valid ObjectId
+        const employeeObjectId = new Types.ObjectId(employeeId);
+        console.log('Employee ObjectId:', employeeObjectId);
+
+        // Try to find any advance first
+        const testAdvance = await this.advanceModel.findOne({}).lean();
+        console.log('Test advance (any):', testAdvance);
+
+        // Now try with just the employee ID
+        const employeeAdvances = await this.advanceModel
+          .find({
+            employee: employeeObjectId,
+          })
+          .lean();
+        console.log('Employee advances:', employeeAdvances);
+
+        // Finally, try the full query
         const repayableAdvances = await this.advanceModel
           .find({
-            employee: employeeId,
+            employee: employeeObjectId,
             status: 'disbursed',
             $expr: {
               $lt: ['$amountRepaid', '$totalRepayment'],
             },
           })
-          .sort({ approvedDate: 1 });
+          .sort({ approvedDate: 1 })
+          .lean();
 
         console.log('Query conditions:', {
-          employee: employeeId,
+          employee: employeeObjectId.toString(),
           status: 'disbursed',
-          $expr: {
-            $lt: ['$amountRepaid', '$totalRepayment'],
-          },
+          amountRepaidLessThanTotal: true,
         });
-
-        // Log the raw query result
-        console.log(
-          'Found advances:',
-          JSON.stringify(repayableAdvances, null, 2),
-        );
-
-        // Try a simpler query to verify basic connectivity
-        const allAdvances = await this.advanceModel
-          .find({ employee: employeeId })
-          .lean();
-        console.log(
-          'All advances for employee:',
-          JSON.stringify(allAdvances, null, 2),
-        );
 
         if (repayableAdvances && repayableAdvances.length > 0) {
           let remainingAmount: number = amount;
