@@ -358,16 +358,13 @@ export class AdvanceService {
 
         // Add to repayment balance if advance is disbursed or being repaid
         if (advance.status === 'disbursed' || advance.status === 'repaying') {
-          acc.repaymentBalance +=
-            advance.totalRepayment - (advance.amountRepaid || 0);
+          const totalDue = advance.totalRepayment || 0;
+          const amountRepaid = advance.amountRepaid || 0;
+          acc.repaymentBalance += Math.ceil(totalDue - amountRepaid);
         }
 
         // Calculate total repaid amount
-        if (advance.status === 'repaid') {
-          // For fully repaid advances, add the full amount including interest
-          acc.totalRepaid += advance.totalRepayment;
-        } else if (advance.amountRepaid) {
-          // For advances in other statuses, add any partial repayments
+        if (advance.amountRepaid) {
           acc.totalRepaid += advance.amountRepaid;
         }
 
