@@ -473,22 +473,6 @@ export class MpesaService {
   private async handlePayBillCallback(callbackData: any) {
     try {
       const { BillRefNumber, TransAmount } = callbackData;
-
-      // // Create transaction record
-      // const transaction = await this.mpesaModel.create({
-      //   transactionType: 'paybill',
-      //   employee: new Types.ObjectId(BillRefNumber?.split(':')[1]),
-      //   amount: parseFloat(callbackData.TransAmount),
-      //   phoneNumber: callbackData.MSISDN,
-      //   accountReference: callbackData.BillRefNumber,
-      //   status: 'completed',
-      //   transactionId: callbackData.TransID,
-      //   transactionDate: callbackData.TransTime,
-      //   balance: callbackData.OrgAccountBalance,
-      //   receiverPartyPublicName: `${callbackData.FirstName} ${callbackData.MiddleName} ${callbackData.LastName}`.trim(),
-      // });
-
-      // Convert TransAmount to number
       const amount = parseFloat(TransAmount);
       if (isNaN(amount)) {
         throw new Error('Invalid transaction amount');
@@ -497,31 +481,21 @@ export class MpesaService {
       // Handle advance repayment if BillRefNumber starts with repay_advance:
       if (BillRefNumber?.startsWith('repay_advance:')) {
         const employeeId = BillRefNumber.split(':')[1];
-        this.logger.log('repaing advance for employee', employeeId);
+        this.logger.log(
+          'Processing advance repayment for employee:',
+          employeeId,
+        );
+
+        // Get employee details for notification
+        const employee = await this.employeeModel.findById(employeeId);
+        if (!employee) {
+          throw new Error('Employee not found');
+        }
 
         // Get all advances that need repayment
-        console.log('Searching for advances with employeeId:', employeeId);
-
-        // First, verify the employee ID is valid ObjectId
-        const employeeObjectId = new Types.ObjectId(employeeId);
-        console.log('Employee ObjectId:', employeeObjectId);
-
-        // Try to find any advance first
-        const testAdvance = await this.advanceModel.findOne({}).lean();
-        console.log('Test advance (any):', testAdvance);
-
-        // Now try with just the employee ID
-        const employeeAdvances = await this.advanceModel
-          .find({
-            employee: employeeObjectId,
-          })
-          .lean();
-        console.log('Employee advances:', employeeAdvances);
-
-        // Finally, try the full query
         const repayableAdvances = await this.advanceModel
           .find({
-            employee: employeeObjectId,
+            employee: new Types.ObjectId(employeeId),
             status: 'disbursed',
             $expr: {
               $lt: ['$amountRepaid', '$totalRepayment'],
@@ -529,12 +503,6 @@ export class MpesaService {
           })
           .sort({ approvedDate: 1 })
           .lean();
-
-        console.log('Query conditions:', {
-          employee: employeeObjectId.toString(),
-          status: 'disbursed',
-          amountRepaidLessThanTotal: true,
-        });
 
         if (repayableAdvances && repayableAdvances.length > 0) {
           let remainingAmount: number = amount;
@@ -566,15 +534,15 @@ export class MpesaService {
 
             remainingAmount -= amountToRepay;
           }
-          // Send notification
+
+          // Send notification to user's actual phone number
           await this.notificationService.sendSMS(
-            callbackData.MSISDN,
-            `Your advance repayment of KES ${Number(amount).toLocaleString()} has been received. Thank you for using Innova Services.`,
+            employee.phoneNumber, // Use actual phone number from employee record
+            `Your advance repayment of KES ${amount.toLocaleString()} has been received. Thank you for using Innova Services.`,
           );
         }
       } else {
-        this.logger.log('recharging advance for employee');
-
+        this.logger.log('Processing wallet recharge');
         // Handle wallet recharge (existing logic)
         const userId = BillRefNumber.split(':')[1];
         if (!userId) {
