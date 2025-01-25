@@ -178,8 +178,9 @@ export class AdvancePaymentService {
 
     // Calculate total amount due
     const totalAmountDue = repayableAdvances.reduce((total, advance) => {
-      const remainingAmount =
-        advance.totalRepayment - (advance.amountRepaid || 0);
+      const interest = (advance.amount * (advance.interestRate || 0)) / 100;
+      const totalDue = advance.amount + interest;
+      const remainingAmount = totalDue - (advance.amountRepaid || 0);
       return total + remainingAmount;
     }, 0);
 
@@ -188,7 +189,7 @@ export class AdvancePaymentService {
       throw new BadRequestException('Amount must be greater than 0');
     }
 
-    if (dto.amount > Math.ceil(totalAmountDue) + 1) {
+    if (dto.amount > Math.ceil(totalAmountDue)) {
       throw (
         (new BadRequestException(
           `Repayment amount (${dto.amount}) exceeds total amount due (${totalAmountDue})`,
