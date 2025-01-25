@@ -505,14 +505,18 @@ export class MpesaService {
           .find({
             employee: employeeId,
             status: 'disbursed',
-            amountRepaid: { $lt: '$totalRepayment' },
+            $expr: {
+              $lt: ['$amountRepaid', '$totalRepayment'],
+            },
           })
           .sort({ approvedDate: 1 });
 
         console.log('Query conditions:', {
           employee: employeeId,
           status: 'disbursed',
-          amountRepaid: { $lt: '$totalRepayment' },
+          $expr: {
+            $lt: ['$amountRepaid', '$totalRepayment'],
+          },
         });
 
         // Log the raw query result
