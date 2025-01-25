@@ -346,80 +346,6 @@ export class MpesaService {
         updateData.callbackPhoneNumber = metadataMap
           .get('PhoneNumber')
           ?.toString();
-
-        // Handle advance repayment if this is an advance repayment transaction
-        if (transaction.accountReference?.startsWith('repay_advance:')) {
-          const employeeId = transaction.accountReference.split(':')[1];
-          const amount = Number(metadataMap.get('Amount')) || 0;
-
-          // Get all advances that need repayment
-          const repayableAdvances = await this.advanceModel
-            .find({
-              employee: employeeId,
-              status: { $in: ['disbursed', 'repaying'] },
-              $expr: {
-                $lt: [
-                  '$amountRepaid',
-                  {
-                    $add: [
-                      '$amount',
-                      { $subtract: ['$totalRepayment', '$amount'] },
-                    ],
-                  },
-                ],
-              },
-            })
-            .sort({ approvedDate: 1 });
-
-          if (repayableAdvances && repayableAdvances.length > 0) {
-            let remainingAmount: number = amount;
-
-            // Update each advance with the repaid amount, starting from the oldest
-            for (const advance of repayableAdvances) {
-              if (remainingAmount <= 0) break;
-
-              const currentDue =
-                advance.amount +
-                (advance.totalRepayment - advance.amount) -
-                (advance.amountRepaid || 0);
-              const amountToRepay = Math.min(remainingAmount, currentDue);
-
-              // Update advance record
-              const updatedAmountRepaid =
-                (advance.amountRepaid || 0) + amountToRepay;
-              const isFullyRepaid =
-                updatedAmountRepaid >=
-                advance.amount + (advance.totalRepayment - advance.amount);
-
-              await this.advanceModel.findByIdAndUpdate(advance._id, {
-                $inc: { amountRepaid: amountToRepay },
-                $set: {
-                  status: isFullyRepaid ? 'repaid' : 'repaying',
-                  lastRepaymentDate: new Date(),
-                },
-              });
-
-              remainingAmount -= amountToRepay;
-            }
-
-            // Create wallet transaction record
-            await this.walletTransactionService.create({
-              walletId: employeeId,
-              createTransactionDto: {
-                transactionType: 'advance_repayment',
-                amount: amount,
-                transactionId: transaction._id.toString(),
-                description: 'Advance Repayment via M-PESA',
-              },
-            });
-
-            // Send notification
-            await this.notificationService.sendSMS(
-              transaction.phoneNumber,
-              `Your advance repayment of KES ${amount.toLocaleString()} has been received. Thank you for using Innova Services.`,
-            );
-          }
-        }
       }
 
       // Update the transaction
@@ -550,10 +476,11 @@ export class MpesaService {
 
       // Create transaction record
       const transaction = await this.mpesaModel.create({
-        transactionType: callbackData.TransactionType,
+        transactionType: 'paybill', // Fixed enum value
         transId: callbackData.TransID,
         transTime: callbackData.TransTime,
-        transAmount: callbackData.TransAmount,
+        amount: parseFloat(callbackData.TransAmount), // Add required amount field
+        employee: BillRefNumber?.split(':')[1], // Add required employee field from BillRefNumber
         businessShortCode: callbackData.BusinessShortCode,
         billRefNumber: callbackData.BillRefNumber,
         invoiceNumber: callbackData.InvoiceNumber,
