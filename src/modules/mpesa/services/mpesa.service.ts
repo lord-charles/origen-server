@@ -357,7 +357,9 @@ export class MpesaService {
             .find({
               employee: employeeId,
               status: { $in: ['disbursed', 'repaying'] },
-              amountRepaid: { $lt: '$totalRepayment' },
+              $expr: {
+                $lt: ['$amountRepaid', { $add: ['$amount', '$totalInterest'] }],
+              },
             })
             .sort({ approvedDate: 1 });
 
@@ -369,14 +371,16 @@ export class MpesaService {
               if (remainingAmount <= 0) break;
 
               const currentDue =
-                advance.totalRepayment - (advance.amountRepaid || 0);
+                advance.amount +
+                advance.totalInterest -
+                (advance.amountRepaid || 0);
               const amountToRepay = Math.min(remainingAmount, currentDue);
 
               // Update advance record
               const updatedAmountRepaid =
                 (advance.amountRepaid || 0) + amountToRepay;
               const isFullyRepaid =
-                updatedAmountRepaid >= advance.totalRepayment;
+                updatedAmountRepaid >= advance.amount + advance.totalInterest;
 
               await this.advanceModel.findByIdAndUpdate(advance._id, {
                 $inc: { amountRepaid: amountToRepay },
