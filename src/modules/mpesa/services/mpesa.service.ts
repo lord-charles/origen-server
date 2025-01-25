@@ -500,24 +500,36 @@ export class MpesaService {
         this.logger.log('repaing advance for employee', employeeId);
 
         // Get all advances that need repayment
+        console.log('Searching for advances with employeeId:', employeeId);
         const repayableAdvances = await this.advanceModel
           .find({
             employee: employeeId,
-            status: { $in: ['disbursed', 'repaying', 'approved'] },
-            $expr: {
-              $lt: [
-                '$amountRepaid',
-                {
-                  $add: [
-                    '$amount',
-                    { $subtract: ['$totalRepayment', '$amount'] },
-                  ],
-                },
-              ],
-            },
+            status: 'disbursed',
+            amountRepaid: { $lt: '$totalRepayment' },
           })
           .sort({ approvedDate: 1 });
-        console.log(repayableAdvances);
+
+        console.log('Query conditions:', {
+          employee: employeeId,
+          status: 'disbursed',
+          amountRepaid: { $lt: '$totalRepayment' },
+        });
+
+        // Log the raw query result
+        console.log(
+          'Found advances:',
+          JSON.stringify(repayableAdvances, null, 2),
+        );
+
+        // Try a simpler query to verify basic connectivity
+        const allAdvances = await this.advanceModel
+          .find({ employee: employeeId })
+          .lean();
+        console.log(
+          'All advances for employee:',
+          JSON.stringify(allAdvances, null, 2),
+        );
+
         if (repayableAdvances && repayableAdvances.length > 0) {
           let remainingAmount: number = amount;
 
