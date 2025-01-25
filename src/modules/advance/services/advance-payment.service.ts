@@ -188,7 +188,7 @@ export class AdvancePaymentService {
       throw new BadRequestException('Amount must be greater than 0');
     }
 
-    if (dto.amount > totalAmountDue) {
+    if (dto.amount > Math.ceil(totalAmountDue)) {
       throw new BadRequestException(
         `Repayment amount (${dto.amount}) exceeds total amount due (${totalAmountDue})`,
       );
