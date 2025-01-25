@@ -496,7 +496,7 @@ export class MpesaService {
         const repayableAdvances = await this.advanceModel
           .find({
             employee: new Types.ObjectId(employeeId),
-            status: 'disbursed',
+            status: { $in: ['disbursed', 'repaying'] },
             $expr: {
               $lt: ['$amountRepaid', '$totalRepayment'],
             },
