@@ -1,7 +1,6 @@
 import {
   Controller,
   Get,
-  Post,
   Body,
   Param,
   Delete,
@@ -16,16 +15,14 @@ import {
   ApiTags,
   ApiOperation,
   ApiResponse,
-  ApiParam,
-  ApiQuery,
   ApiBearerAuth,
 } from '@nestjs/swagger';
 import { CreateUserDto, UpdateUserDto } from './dto/user.dto';
 import { UserService } from './user.service';
 import { Public } from './decorators/public.decorator';
-import { Roles } from './decorators/roles.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { UserFilterDto } from './dto/filter.dto';
+import { Request } from 'express';
 
 @ApiTags('Users')
 @ApiBearerAuth()
@@ -47,7 +44,7 @@ export class UserController {
     status: 200,
     description: 'Employees retrieved successfully',
   })
-  async findAll(@Query() filterDto: UserFilterDto) {
+  async findAll(@Query() filterDto: UserFilterDto, @Req() req: Request) {
     const {
       status,
       department,
@@ -125,7 +122,10 @@ export class UserController {
     status: 404,
     description: 'User not found',
   })
-  async findByNationalId(@Param('nationalId') nationalId: string) {
+  async findByNationalId(
+    @Param('nationalId') nationalId: string,
+    @Req() req: any,
+  ) {
     return this.userService.findByNationalId(nationalId);
   }
 
@@ -147,8 +147,12 @@ export class UserController {
     status: 404,
     description: 'Employee not found',
   })
-  async update(@Param('id') id: string, @Body() updateUserDto: UpdateUserDto) {
-    return this.userService.update(id, updateUserDto);
+  async update(
+    @Param('id') id: string,
+    @Body() updateUserDto: UpdateUserDto,
+    @Req() req: any,
+  ) {
+    return this.userService.update(id, updateUserDto, req);
   }
 
   // Delete user
@@ -167,7 +171,7 @@ export class UserController {
     status: 404,
     description: 'Employee not found',
   })
-  async remove(@Param('id') id: string) {
-    return this.userService.remove(id);
+  async remove(@Param('id') id: string, @Req() req: Request) {
+    return this.userService.remove(id, req);
   }
 }

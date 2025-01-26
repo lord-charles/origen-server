@@ -20,6 +20,9 @@ import {
   SystemConfigDocument,
 } from '../../system-config/schemas/system-config.schema';
 import { PaymentMethod } from '../enums/payment-method.enum';
+import { SystemLogsService } from '../../system-logs/services/system-logs.service';
+import { LogSeverity } from '../../system-logs/schemas/system-log.schema';
+import { Request } from 'express';
 
 @Injectable()
 export class AdvanceService {
@@ -30,11 +33,13 @@ export class AdvanceService {
     private readonly userModel: Model<UserDocument>,
     @InjectModel(SystemConfig.name)
     private readonly systemConfigModel: Model<SystemConfigDocument>,
+    private readonly systemLogsService: SystemLogsService,
   ) {}
 
   async create(
     employeeId: string,
     createAdvanceDto: CreateAdvanceDto,
+    req?: Request,
   ): Promise<Advance> {
     // Get advance configuration
     const config = await this.getAdvanceConfig();
@@ -132,7 +137,17 @@ export class AdvanceService {
       installmentAmount,
     });
 
-    return advance.save();
+    const savedAdvance = await advance.save();
+
+    await this.systemLogsService.createLog(
+      'Advance Request',
+      `New advance request of ${createAdvanceDto.amount} created for employee`,
+      LogSeverity.INFO,
+      employee.employeeId?.toString(),
+      req,
+    );
+
+    return savedAdvance;
   }
 
   async findAll(filterDto: AdvanceFilterDto) {
@@ -212,6 +227,7 @@ export class AdvanceService {
     id: string,
     adminId: string,
     updateAdvanceStatusDto: UpdateAdvanceStatusDto,
+    req?: Request,
   ): Promise<Advance> {
     const advance = await this.findOne(id);
 
@@ -235,11 +251,21 @@ export class AdvanceService {
       update.disbursedDate = new Date();
     }
 
-    return this.advanceModel
+    const updatedAdvance = await this.advanceModel
       .findByIdAndUpdate(id, update, { new: true })
       .populate('employee', 'firstName lastName email employeeId')
       .populate('approvedBy', 'firstName lastName email employeeId')
       .populate('disbursedBy', 'firstName lastName email employeeId');
+
+    await this.systemLogsService.createLog(
+      'Advance Status Update',
+      `Advance status updated to ${updateAdvanceStatusDto.status}`,
+      LogSeverity.INFO,
+      updatedAdvance.employee.id?.toString(),
+      req,
+    );
+
+    return updatedAdvance;
   }
 
   private validateStatusTransition(currentStatus: string, newStatus: string) {

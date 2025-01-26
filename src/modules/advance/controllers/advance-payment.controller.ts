@@ -1,11 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Post,
-  Request,
-  UseGuards,
-} from '@nestjs/common';
+import { Body, Controller, Get, Post, UseGuards, Req } from '@nestjs/common';
 import {
   ApiBearerAuth,
   ApiOperation,
@@ -19,6 +12,12 @@ import {
   CheckApprovedAdvanceAmountResponseDto,
 } from '../dto/advance-to-mpesa.dto';
 import { AdvanceRepaymentDto } from '../dto/advance-repayment.dto';
+import { Request } from 'express';
+import { User } from '../../auth/schemas/user.schema';
+
+interface AuthenticatedRequest extends Request {
+  user: User & { id: string };
+}
 
 @ApiTags('Advance Payments')
 @ApiBearerAuth()
@@ -38,29 +37,37 @@ export class AdvancePaymentController {
     description: 'Returns advance amount details',
     type: CheckApprovedAdvanceAmountResponseDto,
   })
-  async checkApprovedAmount(@Request() req) {
-    return this.advancePaymentService.checkApprovedAdvanceAmount(req.user.id);
+  async checkApprovedAmount(@Req() req: AuthenticatedRequest) {
+    return this.advancePaymentService.checkApprovedAdvanceAmount(req.user?.id);
   }
 
   @Post('withdraw')
   @ApiOperation({
     summary: 'Withdraw approved advance to M-Pesa',
+
     description: 'Initiates an M-Pesa transfer for the approved advance amount',
   })
   @ApiResponse({
     status: 200,
     description: 'M-Pesa transfer initiated successfully',
   })
-  async withdrawToMpesa(@Request() req, @Body() dto: AdvanceToMpesaDto) {
-    return this.advancePaymentService.advanceToMpesa(req.user.id, dto);
+  async withdrawToMpesa(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: AdvanceToMpesaDto,
+  ) {
+    return this.advancePaymentService.advanceToMpesa(req.user.id, dto, req);
   }
 
   @Post('mpesa/repay')
   @ApiOperation({ summary: 'Repay advance via M-PESA' })
-  async repayAdvanceViaMpesa(@Request() req, @Body() dto: AdvanceRepaymentDto) {
+  async repayAdvanceViaMpesa(
+    @Req() req: AuthenticatedRequest,
+    @Body() dto: AdvanceRepaymentDto,
+  ) {
     return this.advancePaymentService.initiateAdvanceRepayment(
       req.user.id,
       dto,
+      req,
     );
   }
 }

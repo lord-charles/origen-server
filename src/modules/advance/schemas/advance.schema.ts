@@ -29,6 +29,18 @@ export class Advance {
   amountRepaid: number;
 
   @ApiProperty({
+    description: 'Creation timestamp',
+    example: new Date(),
+  })
+  createdAt: Date;
+
+  @ApiProperty({
+    description: 'Last update timestamp',
+    example: new Date(),
+  })
+  updatedAt: Date;
+
+  @ApiProperty({
     description: 'Amount withdrawn from the approved advance in KES',
     example: 0,
   })
@@ -45,11 +57,25 @@ export class Advance {
   @ApiProperty({
     description: 'Status of the advance request',
     example: 'pending',
-    enum: ['pending', 'approved', 'declined', 'repaying', 'repaid'],
+    enum: [
+      'pending',
+      'approved',
+      'disbursed',
+      'declined',
+      'repaying',
+      'repaid',
+    ],
   })
   @Prop({
     type: String,
-    enum: ['pending', 'approved', 'declined', 'repaying', 'repaid'],
+    enum: [
+      'pending',
+      'approved',
+      'disbursed',
+      'declined',
+      'repaying',
+      'repaid',
+    ],
     default: 'pending',
   })
   status: string;

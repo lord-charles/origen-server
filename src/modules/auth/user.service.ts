@@ -17,6 +17,9 @@ import * as bcrypt from 'bcrypt';
 import { JwtService } from '@nestjs/jwt';
 import { User, UserDocument } from './schemas/user.schema';
 import { NotificationService } from '../notifications/services/notification.service';
+import { SystemLogsService } from '../system-logs/services/system-logs.service';
+import { LogSeverity } from '../system-logs/schemas/system-log.schema';
+import { Request } from 'express';
 
 @Injectable()
 export class UserService {
@@ -24,6 +27,7 @@ export class UserService {
     @InjectModel(User.name) private userModel: Model<UserDocument>,
     private readonly jwtService: JwtService,
     private readonly notificationService: NotificationService,
+    private readonly systemLogsService: SystemLogsService,
   ) {}
 
   private generatePin(): string {
@@ -164,13 +168,25 @@ export class UserService {
    * @param id
    * @param updateUserDto
    */
-  async update(id: string, updateUserDto: UpdateUserDto): Promise<User> {
+  async update(
+    id: string,
+    updateUserDto: UpdateUserDto,
+    req?: Request,
+  ): Promise<User> {
     const updatedUser = await this.userModel.findByIdAndUpdate(
       id,
       updateUserDto,
       { new: true },
     );
     if (!updatedUser) throw new NotFoundException('User not found');
+
+    await this.systemLogsService.createLog(
+      'User Update',
+      `User ${updatedUser.firstName} ${updatedUser.lastName} details updated`,
+      LogSeverity.INFO,
+      updatedUser.employeeId?.toString(),
+      req,
+    );
 
     return updatedUser;
   }
@@ -179,9 +195,17 @@ export class UserService {
    * @description Delete an employee by ID
    * @param id
    */
-  async remove(id: string): Promise<void> {
+  async remove(id: string, req?: Request): Promise<void> {
     const user = await this.userModel.findByIdAndDelete(id);
     if (!user) throw new NotFoundException('User not found');
+
+    await this.systemLogsService.createLog(
+      'User Deletion',
+      `User ${user.firstName} ${user.lastName} was deleted`,
+      LogSeverity.WARNING,
+      user.employeeId?.toString(),
+      req,
+    );
   }
 
   /**
@@ -190,6 +214,7 @@ export class UserService {
    */
   async updatePassword(
     updatePasswordDto: UpdatePasswordDto,
+    req?: Request,
   ): Promise<{ message: string }> {
     const user = await this.userModel.findById(updatePasswordDto.userId);
 
@@ -197,12 +222,29 @@ export class UserService {
       !user ||
       !(await bcrypt.compare(updatePasswordDto.currentPin, user.pin))
     ) {
+      if (user) {
+        await this.systemLogsService.createLog(
+          'PIN Update Failed',
+          `Failed PIN update attempt for user ${user.firstName} ${user.lastName}`,
+          LogSeverity.WARNING,
+          user.employeeId?.toString(),
+          req,
+        );
+      }
       throw new BadRequestException('Invalid current PIN');
     }
 
     const hashedPin = await bcrypt.hash(updatePasswordDto.newPin, 10);
     user.pin = hashedPin;
     await user.save();
+
+    await this.systemLogsService.createLog(
+      'PIN Update',
+      `PIN successfully updated for user ${user.firstName} ${user.lastName}`,
+      LogSeverity.INFO,
+      user.employeeId?.toString(),
+      req,
+    );
 
     return { message: 'Password updated successfully' };
   }

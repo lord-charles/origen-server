@@ -22,6 +22,11 @@ import {
   WalletTransaction,
   WalletTransactionSchema,
 } from '../wallet/schemas/wallet-transaction.schema';
+import {
+  SystemLog,
+  SystemLogSchema,
+} from '../system-logs/schemas/system-log.schema';
+import { SystemLogsService } from '../system-logs/services/system-logs.service';
 
 @Module({
   imports: [
@@ -31,13 +36,19 @@ import {
       { name: SystemConfig.name, schema: SystemConfigSchema },
       { name: MpesaTransaction.name, schema: MpesaTransactionSchema },
       { name: WalletTransaction.name, schema: WalletTransactionSchema },
+      { name: SystemLog.name, schema: SystemLogSchema },
     ]),
     MpesaModule,
     WalletModule,
     NotificationsModule,
   ],
   controllers: [AdvanceController, AdvancePaymentController],
-  providers: [AdvanceService, AdvancePaymentService, NotificationService],
+  providers: [
+    AdvanceService,
+    AdvancePaymentService,
+    NotificationService,
+    SystemLogsService,
+  ],
   exports: [AdvanceService],
 })
 export class AdvanceModule {}

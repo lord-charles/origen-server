@@ -12,11 +12,19 @@ import { JwtStrategy } from './strategies/jwt.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
 import { NotificationService } from '../notifications/services/notification.service';
+import { SystemLogsService } from '../system-logs/services/system-logs.service';
+import {
+  SystemLog,
+  SystemLogSchema,
+} from '../system-logs/schemas/system-log.schema';
 
 @Module({
   imports: [
     PassportModule.register({ defaultStrategy: 'jwt' }),
     MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
+    MongooseModule.forFeature([
+      { name: SystemLog.name, schema: SystemLogSchema },
+    ]),
     JwtModule.registerAsync({
       imports: [ConfigModule],
       inject: [ConfigService],
@@ -33,6 +41,7 @@ import { NotificationService } from '../notifications/services/notification.serv
     AuthService,
     UserService,
     NotificationService,
+    SystemLogsService,
     JwtStrategy,
     {
       provide: 'APP_GUARD',

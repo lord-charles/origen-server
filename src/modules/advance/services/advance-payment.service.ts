@@ -15,6 +15,9 @@ import {
   CheckApprovedAdvanceAmountResponseDto,
 } from '../dto/advance-to-mpesa.dto';
 import { AdvanceRepaymentDto } from '../dto/advance-repayment.dto';
+import { SystemLogsService } from '../../system-logs/services/system-logs.service';
+import { LogSeverity } from '../../system-logs/schemas/system-log.schema';
+import { Request } from 'express';
 
 @Injectable()
 export class AdvancePaymentService {
@@ -26,6 +29,7 @@ export class AdvancePaymentService {
     private mpesaService: MpesaService,
     private walletTransactionService: WalletTransactionService,
     private notificationService: NotificationService,
+    private readonly systemLogsService: SystemLogsService,
   ) {}
 
   async checkApprovedAdvanceAmount(
@@ -67,7 +71,11 @@ export class AdvancePaymentService {
     };
   }
 
-  async advanceToMpesa(employeeId: string, dto: AdvanceToMpesaDto) {
+  async advanceToMpesa(
+    employeeId: string,
+    dto: AdvanceToMpesaDto,
+    req?: Request,
+  ) {
     // Check available advance amount
     const { availableAmount } =
       await this.checkApprovedAdvanceAmount(employeeId);
@@ -128,6 +136,14 @@ export class AdvancePaymentService {
       }
     }
 
+    await this.systemLogsService.createLog(
+      'Advance Withdrawal',
+      `Advance withdrawal of KES ${dto.amount} to M-Pesa (${dto.phoneNumber})`,
+      LogSeverity.INFO,
+      employeeId,
+      req,
+    );
+
     // Create wallet transaction record
     await this.walletTransactionService.create({
       walletId: employeeId,
@@ -154,7 +170,11 @@ export class AdvancePaymentService {
     return mpesaTransaction;
   }
 
-  async initiateAdvanceRepayment(employeeId: string, dto: AdvanceRepaymentDto) {
+  async initiateAdvanceRepayment(
+    employeeId: string,
+    dto: AdvanceRepaymentDto,
+    req?: Request,
+  ) {
     // Get all advances that need repayment
     const allAdvances = await this.advanceModel
       .find({
@@ -208,6 +228,14 @@ export class AdvancePaymentService {
         accountReference: `repay_advance:${employeeId}`,
       },
       employeeId,
+    );
+
+    await this.systemLogsService.createLog(
+      'Advance Repayment',
+      `Advance repayment initiated: KES ${dto.amount} from M-Pesa (${dto.phoneNumber})`,
+      LogSeverity.INFO,
+      employeeId,
+      req,
     );
 
     return stkPushResult;

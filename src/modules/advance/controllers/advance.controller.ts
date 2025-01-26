@@ -46,9 +46,9 @@ export class AdvanceController {
     status: 201,
     description: 'Advance request created successfully',
   })
-  create(@Body() createAdvanceDto: CreateAdvanceDto, @Req() req: any) {
+  create(@Body() createAdvanceDto: CreateAdvanceDto, @Req() req: Request) {
     const employeeId = (req.user as any)._id;
-    return this.advanceService.create(employeeId, createAdvanceDto);
+    return this.advanceService.create(employeeId, createAdvanceDto, req);
   }
 
   @Get()
@@ -162,6 +162,7 @@ export class AdvanceController {
       id,
       adminId,
       updateAdvanceStatusDto,
+      req,
     );
   }
 }

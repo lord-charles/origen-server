@@ -6,7 +6,8 @@ import {
   HttpStatus,
   UseGuards,
   Get,
-  Request,
+  Req,
+  Request as NestRequest,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -20,6 +21,8 @@ import { LoginUserDto } from './dto/login.dto';
 import { AuthResponse } from './interfaces/auth.interface';
 import { Public } from './decorators/public.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
+import { Request as ExpressRequest } from 'express';
+import { User, UserDocument } from './schemas/user.schema';
 
 @ApiTags('Authentication')
 @Controller('auth')
@@ -60,8 +63,11 @@ export class AuthController {
     status: HttpStatus.CONFLICT,
     description: 'User with provided National ID already exists',
   })
-  async register(@Body() createUserDto: CreateUserDto): Promise<AuthResponse> {
-    return this.authService.register(createUserDto);
+  async register(
+    @Body() createUserDto: CreateUserDto,
+    @Req() req: ExpressRequest,
+  ): Promise<AuthResponse> {
+    return this.authService.register(createUserDto, req);
   }
 
   @Public()
@@ -94,8 +100,11 @@ export class AuthController {
     status: HttpStatus.UNAUTHORIZED,
     description: 'Invalid credentials or inactive account',
   })
-  async login(@Body() loginUserDto: LoginUserDto): Promise<AuthResponse> {
-    return this.authService.login(loginUserDto);
+  async login(
+    @Body() loginUserDto: LoginUserDto,
+    @Req() req: ExpressRequest,
+  ): Promise<AuthResponse> {
+    return this.authService.login(loginUserDto, req);
   }
 
   @Get('/profile')
@@ -127,7 +136,9 @@ export class AuthController {
     status: HttpStatus.UNAUTHORIZED,
     description: 'Not authenticated',
   })
-  async getProfile(@Request() req: any) {
+  async getProfile(
+    @NestRequest() req: ExpressRequest & { user: User | UserDocument },
+  ) {
     // The user object is already validated and attached to the request by JwtStrategy
     return this.authService.sanitizeUser(req.user);
   }

@@ -9,6 +9,7 @@ import { LoggerMiddleware } from './middleware/logger.middleware';
 import { TransactionModule } from './modules/transactions/transaction.module';
 import { SystemConfigModule } from './modules/system-config/system-config.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
+import { StatisticsModule } from './modules/statistics/statistics.module';
 
 @Module({
   imports: [
@@ -21,6 +22,7 @@ import { NotificationsModule } from './modules/notifications/notifications.modul
     TransactionModule,
     SystemConfigModule,
     NotificationsModule,
+    StatisticsModule,
   ],
   controllers: [],
   providers: [],
