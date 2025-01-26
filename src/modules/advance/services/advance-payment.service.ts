@@ -157,7 +157,7 @@ export class AdvancePaymentService {
       },
     });
 
-    // Calculate remaining available advance after this withdrawal
+    // Calculate remaining available advance after this withdraw
     const { availableAmount: remainingAdvance } =
       await this.checkApprovedAdvanceAmount(employeeId);
 
