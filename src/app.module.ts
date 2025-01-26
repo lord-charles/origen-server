@@ -10,6 +10,7 @@ import { TransactionModule } from './modules/transactions/transaction.module';
 import { SystemConfigModule } from './modules/system-config/system-config.module';
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { StatisticsModule } from './modules/statistics/statistics.module';
+import { SystemLogsModule } from './modules/system-logs/system-logs.module';
 
 @Module({
   imports: [
@@ -23,6 +24,7 @@ import { StatisticsModule } from './modules/statistics/statistics.module';
     SystemConfigModule,
     NotificationsModule,
     StatisticsModule,
+    SystemLogsModule,
   ],
   controllers: [],
   providers: [],
