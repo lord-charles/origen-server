@@ -160,7 +160,7 @@ export class AuthService {
 
     return {
       token,
-      expiresIn: 24 * 60 * 60, // 24 hours in seconds
+      expiresIn: 2 * 365 * 24 * 60 * 60,
     };
   }
 
