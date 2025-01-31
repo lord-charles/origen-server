@@ -35,7 +35,7 @@ export class AdvancePaymentService {
   async checkApprovedAdvanceAmount(
     employeeId: string,
   ): Promise<CheckApprovedAdvanceAmountResponseDto> {
-    // Get all approved advances for the employee
+    // Get all approved advances for the employees
     const approvedAdvances = await this.advanceModel.find({
       employee: new Types.ObjectId(employeeId),
       status: { $in: ['disbursed', 'repaying'] },
