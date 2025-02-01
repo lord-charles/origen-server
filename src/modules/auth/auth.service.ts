@@ -156,11 +156,14 @@ export class AuthService {
       roles: user.roles,
     };
 
-    const token = this.jwtService.sign(payload);
+    // For 1 year: 365 days * 24 hours * 60 minutes * 60 seconds
+    const token = this.jwtService.sign(payload, {
+      expiresIn: 365 * 24 * 60 * 60,
+    });
 
     return {
       token,
-      expiresIn: 2 * 365 * 24 * 60 * 60,
+      expiresIn: 365 * 24 * 60 * 60,
     };
   }
 
