@@ -184,7 +184,7 @@ export class User {
     example: '2024-12-31',
   })
   @Prop()
-  employmentEndDate?: Date; // Optional for ongoing employees
+  employmentEndDate?: Date;
 
   @ApiProperty({
     description: 'Type of employment',

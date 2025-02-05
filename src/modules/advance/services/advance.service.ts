@@ -47,6 +47,20 @@ export class AdvanceService {
       throw new NotFoundException('Employee not found');
     }
 
+    // Check if employee is in their last month of employment
+    if (employee.employmentEndDate) {
+      const today = new Date();
+      const endDate = new Date(employee.employmentEndDate);
+      const lastMonthStart = new Date(endDate);
+      lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
+
+      if (today >= lastMonthStart) {
+        throw new BadRequestException(
+          'Cannot apply for advance in the last month of employment',
+        );
+      }
+    }
+
     // Get employee's basic salary
     const basicSalary = await this.getBasicSalary(employeeId);
     if (!basicSalary) {
