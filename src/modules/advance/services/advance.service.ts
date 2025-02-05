@@ -83,6 +83,22 @@ export class AdvanceService {
     const monthStart = startOfMonth(new Date());
     const monthEnd = endOfMonth(new Date());
 
+    // Check for pending advances in current month
+    const pendingAdvance = await this.advanceModel.findOne({
+      employee: new Types.ObjectId(employeeId),
+      status: 'pending',
+      requestedDate: {
+        $gte: monthStart,
+        $lte: monthEnd,
+      },
+    });
+
+    if (pendingAdvance) {
+      throw new BadRequestException(
+        'You have a pending advance request that needs to be approved first',
+      );
+    }
+
     // Get all active advances (pending, approved, disbursed, repaying)
     const existingAdvances = await this.advanceModel.find({
       employee: new Types.ObjectId(employeeId),
