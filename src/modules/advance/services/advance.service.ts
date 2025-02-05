@@ -385,9 +385,10 @@ export class AdvanceService {
         // Add to repayment balance if advance is disbursed or being repaid
         if (advance.status === 'disbursed' || advance.status === 'repaying') {
           const amountRepaid = advance.amountRepaid || 0;
-          const interestRate = advance.interestRate || 0;
-          const interest = (advance.amount * interestRate) / 100;
-          const totalDue = advance.amount + interest;
+          // const interestRate = advance.interestRate || 0;
+          // const interest = (advance.amount * interestRate) / 100;
+          // const totalDue = advance.amount + interest;
+          const totalDue = advance.amount;
           acc.repaymentBalance += Math.ceil(totalDue - amountRepaid);
         }
 
@@ -406,7 +407,10 @@ export class AdvanceService {
 
     // Return calculated advance details
     return {
-      availableAdvance: availableAdvance,
+      availableAdvance: Math.max(
+        0,
+        availableAdvance - metrics.repaymentBalance,
+      ),
       maxAdvance: maxAdvanceAmount,
       basicSalary,
       advancePercentage: (availableAdvance / basicSalary) * 100,

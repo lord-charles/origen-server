@@ -49,10 +49,17 @@ export class AdvancePaymentService {
       };
     }
 
-    // Calculate total approved amount
-    const totalApprovedAmount = approvedAdvances.reduce(
-      (sum, advance) => sum + advance.amount,
-      0,
+    // Calculate total approved amount and interest separately
+    const totals = approvedAdvances.reduce(
+      (acc, advance) => {
+        const interestRate = advance.interestRate || 0;
+        const interest = (advance.amount * interestRate) / 100;
+        return {
+          totalAmount: acc.totalAmount + advance.amount,
+          totalInterest: acc.totalInterest + interest,
+        };
+      },
+      { totalAmount: 0, totalInterest: 0 }
     );
 
     // Calculate total withdrawn amount
@@ -61,13 +68,13 @@ export class AdvancePaymentService {
       0,
     );
 
-    // Calculate available amount
-    const availableAmount = totalApprovedAmount - totalWithdrawnAmount;
+    // Available amount is approved amount minus interest minus what's already withdrawn
+    const availableAmount = totals.totalAmount - totals.totalInterest - totalWithdrawnAmount;
 
     return {
-      approvedAmount: totalApprovedAmount,
+      approvedAmount: totals.totalAmount,
       withdrawnAmount: totalWithdrawnAmount,
-      availableAmount,
+      availableAmount: Math.max(availableAmount, 0), // Ensure we don't return negative available amount
     };
   }
 
