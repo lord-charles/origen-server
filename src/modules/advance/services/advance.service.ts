@@ -23,6 +23,7 @@ import { PaymentMethod } from '../enums/payment-method.enum';
 import { SystemLogsService } from '../../system-logs/services/system-logs.service';
 import { LogSeverity } from '../../system-logs/schemas/system-log.schema';
 import { Request } from 'express';
+import { startOfMonth, endOfMonth } from 'date-fns';
 
 @Injectable()
 export class AdvanceService {
@@ -41,111 +42,93 @@ export class AdvanceService {
     createAdvanceDto: CreateAdvanceDto,
     req?: Request,
   ): Promise<Advance> {
-    // Get advance configuration
-    const config = await this.getAdvanceConfig();
-
-    // Check if employee exists and has base salary set
-    const employee = await this.userModel
-      .findById(employeeId)
-      .select('baseSalary phoneNumber bankDetails');
+    const employee = await this.userModel.findById(employeeId);
     if (!employee) {
       throw new NotFoundException('Employee not found');
     }
-    if (!employee.baseSalary) {
-      throw new BadRequestException('Employee base salary not set');
+
+    // Get employee's basic salary
+    const basicSalary = await this.getBasicSalary(employeeId);
+    if (!basicSalary) {
+      throw new BadRequestException('Employee basic salary not found');
     }
 
-    // Validate payment method requirements if specified
-    const paymentMethod = createAdvanceDto.preferredPaymentMethod;
-    if (paymentMethod) {
-      switch (paymentMethod) {
-        case PaymentMethod.MPESA:
-          if (!employee.phoneNumber) {
-            throw new BadRequestException(
-              'Phone number required for M-Pesa disbursement',
-            );
-          }
-          break;
-        case PaymentMethod.BANK:
-          if (!employee.bankDetails?.accountNumber) {
-            throw new BadRequestException(
-              'Bank account details required for bank disbursement',
-            );
-          }
-          break;
-        // WALLET doesn't need additional validation as all employees have a wallet
-      }
-    }
+    // Calculate half of basic salary
+    const halfBasicSalary = basicSalary / 2;
 
-    // Check if employee has any pending or approved advances
+    // Get existing advances in current month
+    const monthStart = startOfMonth(new Date());
+    const monthEnd = endOfMonth(new Date());
+
+    // Get all active advances (pending, approved, disbursed, repaying)
     const existingAdvances = await this.advanceModel.find({
       employee: new Types.ObjectId(employeeId),
       status: { $in: ['pending', 'approved', 'disbursed', 'repaying'] },
+      requestedDate: {
+        $gte: monthStart,
+        $lte: monthEnd,
+      },
     });
 
+    // Calculate total amount of existing advances in current month
+    const totalExistingAmount = existingAdvances.reduce(
+      (sum, advance) => sum + advance.amount,
+      0,
+    );
+
+    // Check if new advance would exceed half of basic salary
+    if (totalExistingAmount + createAdvanceDto.amount > halfBasicSalary) {
+      throw new BadRequestException(
+        'Total advances in current month cannot exceed half of basic salary',
+      );
+    }
+
+    // Get system configuration
+    const config = await this.getAdvanceConfig();
+
+    // Check if employee has reached max active advances limit
     if (existingAdvances.length >= config.maxActiveAdvances) {
       throw new BadRequestException(
-        'Cannot request new advance while having pending, approved, or ongoing advances',
+        'Maximum number of active advances reached',
       );
     }
 
-    // Validate amount
-    if (
-      createAdvanceDto.amount < config.advanceMinAmount ||
-      createAdvanceDto.amount > config.advanceMaxAmount
-    ) {
+    // Calculate advance metrics
+    const metrics = await this.calculateAdvanceMetrics(employeeId);
+
+    // Calculate available advance amount
+    const availableAdvance = Math.max(
+      0,
+      metrics.availableAdvance - metrics.repaymentBalance,
+    );
+
+    if (createAdvanceDto.amount > availableAdvance) {
       throw new BadRequestException(
-        `Advance amount must be between ${config.advanceMinAmount} and ${config.advanceMaxAmount}`,
+        `Requested amount exceeds available advance amount of ${availableAdvance}`,
       );
     }
 
-    // Validate repayment period
-    if (createAdvanceDto.repaymentPeriod > config.advanceMaxRepaymentPeriod) {
-      throw new BadRequestException(
-        `Repayment period cannot exceed ${config.advanceMaxRepaymentPeriod} months`,
-      );
-    }
-
-    // Calculate advance details
-    const amount = createAdvanceDto.amount;
-    const repaymentPeriod = createAdvanceDto.repaymentPeriod;
-
-    // Calculate total repayment and installment amount
-    const totalInterest =
-      (amount * config.advanceDefaultInterestRate * repaymentPeriod) / 1200; // Monthly interest
-    const totalRepayment = amount + totalInterest;
-    const installmentAmount = totalRepayment / repaymentPeriod;
-
-    // Check if monthly installment is within reasonable limit
-    if (
-      installmentAmount >
-      employee.baseSalary * (config.maxAdvancePercentage / 100)
-    ) {
-      throw new BadRequestException(
-        `Monthly repayment amount exceeds ${config.maxAdvancePercentage}% of monthly salary`,
-      );
-    }
-
-    // Create and save the advance
+    // Create new advance
     const advance = new this.advanceModel({
       ...createAdvanceDto,
       employee: new Types.ObjectId(employeeId),
-      status: 'pending',
       requestedDate: new Date(),
-      interestRate: config.advanceDefaultInterestRate,
-      totalRepayment,
-      installmentAmount,
+      status: 'pending',
     });
 
+    // Save advance
     const savedAdvance = await advance.save();
 
-    await this.systemLogsService.createLog(
-      'Advance Request',
-      `New advance request of ${createAdvanceDto.amount} created for employee`,
-      LogSeverity.INFO,
-      employee.employeeId?.toString(),
-      req,
-    );
+    // Create system log
+    if (req) {
+      await this.systemLogsService.createLog(
+        'Advance Request',
+        `New advance request of KES ${createAdvanceDto.amount} created`,
+        LogSeverity.INFO,
+        employee.employeeId?.toString(),
+        req,
+      );
+    }
 
     return savedAdvance;
   }
@@ -552,5 +535,104 @@ export class AdvanceService {
     };
 
     return config?.data || defaultConfig;
+  }
+
+  private async getBasicSalary(employeeId: string): Promise<number> {
+    const employee = await this.userModel.findById(employeeId);
+    if (!employee) {
+      throw new NotFoundException('Employee not found');
+    }
+    // TODO: Replace this with actual basic salary from employment/payroll module
+    return 50000; // Placeholder value
+  }
+
+  private async calculateAdvanceMetrics(employeeId: string) {
+    // Get advance history metrics
+    const advances = await this.advanceModel.find({
+      employee: employeeId,
+    });
+
+    // Calculate metrics based on advance statuses
+    const metrics = advances.reduce(
+      (acc, advance) => {
+        // Count all disbursed advances as previous advances
+        if (
+          advance.status === 'disbursed' ||
+          advance.status === 'repaying' ||
+          advance.status === 'repaid'
+        ) {
+          acc.totalDisbursed += advance.amount;
+        }
+
+        // Add to repayment balance if advance is disbursed or being repaid
+        if (advance.status === 'disbursed' || advance.status === 'repaying') {
+          const amountRepaid = advance.amountRepaid || 0;
+          // const interestRate = advance.interestRate || 0;
+          // const interest = (advance.amount * interestRate) / 100;
+          // const totalDue = advance.amount + interest;
+          const totalDue = advance.amount;
+          acc.repaymentBalance += Math.ceil(totalDue - amountRepaid);
+        }
+
+        // Calculate total repaid amount
+        if (advance.amountRepaid) {
+          acc.totalRepaid += advance.amountRepaid;
+        }
+
+        return acc;
+      },
+      { totalDisbursed: 0, repaymentBalance: 0, totalRepaid: 0 },
+    );
+
+    // Get employee's base salary from user profile
+    const employee = await this.userModel
+      .findById(employeeId)
+      .select('baseSalary');
+    if (!employee) {
+      throw new NotFoundException('Employee not found');
+    }
+
+    const basicSalary = employee.baseSalary;
+    if (!basicSalary) {
+      throw new BadRequestException('Employee base salary not set');
+    }
+
+    const config = await this.getAdvanceConfig();
+    const maxAdvanceAmount = (basicSalary * config.maxAdvancePercentage) / 100;
+
+    // Get current date and calculate working days
+    const today = new Date();
+    const currentMonth = today.getMonth() + 1;
+    const currentYear = today.getFullYear();
+
+    let workingDaysCount = 0;
+    let lastNonWeekendAmount = 0;
+    let availableAdvance = 0;
+
+    // Calculate up to today's date
+    for (let day = 1; day <= today.getDate(); day++) {
+      const currentDate = new Date(currentYear, currentMonth - 1, day);
+      const isWeekend =
+        currentDate.getDay() === 0 || currentDate.getDay() === 6;
+      const isHoliday = await this.isHoliday(currentDate);
+
+      if (!isWeekend && !isHoliday) {
+        workingDaysCount++;
+        // Calculate total accrual up to this working day
+        const runningTotal = (maxAdvanceAmount / 22) * workingDaysCount;
+
+        // Cap at maxAdvanceAmount and round to nearest 100
+        const cappedAmount = Math.min(runningTotal, maxAdvanceAmount);
+        availableAdvance = Math.floor(cappedAmount / 100) * 100;
+        lastNonWeekendAmount = availableAdvance;
+      } else {
+        availableAdvance = lastNonWeekendAmount;
+      }
+    }
+
+    return {
+      availableAdvance,
+      ...metrics,
+    };
   }
 }
