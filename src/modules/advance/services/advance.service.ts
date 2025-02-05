@@ -29,6 +29,7 @@ import {
   subMonths,
   isWithinInterval,
 } from 'date-fns';
+import { NotificationService } from '../../notifications/services/notification.service';
 
 @Injectable()
 export class AdvanceService {
@@ -40,6 +41,7 @@ export class AdvanceService {
     @InjectModel(SystemConfig.name)
     private readonly systemConfigModel: Model<SystemConfigDocument>,
     private readonly systemLogsService: SystemLogsService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async create(
@@ -128,13 +130,17 @@ export class AdvanceService {
         `Requested amount exceeds available advance amount of ${availableAdvance}`,
       );
     }
-
+    console.log(createAdvanceDto);
     // Create new advance
     const advance = new this.advanceModel({
       ...createAdvanceDto,
       employee: new Types.ObjectId(employeeId),
       requestedDate: new Date(),
       status: 'pending',
+      interestRate: config.advanceDefaultInterestRate,
+      totalRepayment: createAdvanceDto.amount,
+      installmentAmount:
+        createAdvanceDto.amount / createAdvanceDto.repaymentPeriod,
     });
 
     // Save advance
@@ -150,6 +156,15 @@ export class AdvanceService {
         req,
       );
     }
+
+    // Send SMS notification
+    const formattedAmount = createAdvanceDto.amount.toLocaleString('en-KE', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+    const message = `Your advance request of KES ${formattedAmount} has been submitted successfully. You will be notified once it is approved. Thank you for using our service.`;
+    await this.notificationService.sendSMS(employee.phoneNumber, message);
 
     return savedAdvance;
   }
@@ -234,47 +249,81 @@ export class AdvanceService {
     req?: Request,
   ): Promise<Advance> {
     const advance = await this.findOne(id);
+    const newStatus = updateAdvanceStatusDto.status;
 
     // Validate status transition
-    this.validateStatusTransition(
-      advance.status,
-      updateAdvanceStatusDto.status,
-    );
+    this.validateStatusTransition(advance.status, newStatus);
 
-    const update: any = {
-      status: updateAdvanceStatusDto.status,
+    const update: Partial<Advance> = {
+      status: newStatus,
       comments: updateAdvanceStatusDto.comments,
     };
 
     // Add approval or disbursement details
-    if (updateAdvanceStatusDto.status === 'approved') {
+    if (newStatus === 'approved') {
       update.approvedBy = new Types.ObjectId(adminId);
       update.approvedDate = new Date();
-    } else if (updateAdvanceStatusDto.status === 'disbursed') {
+    } else if (newStatus === 'disbursed') {
       update.disbursedBy = new Types.ObjectId(adminId);
       update.disbursedDate = new Date();
     }
 
     const updatedAdvance = await this.advanceModel
       .findByIdAndUpdate(id, update, { new: true })
-      .populate('employee', 'firstName lastName email employeeId')
-      .populate('approvedBy', 'firstName lastName email employeeId')
-      .populate('disbursedBy', 'firstName lastName email employeeId');
+      .populate<{ employee: User }>('employee')
+      .exec();
+
+    if (!updatedAdvance) {
+      throw new NotFoundException(`Advance with ID ${id} not found`);
+    }
 
     await this.systemLogsService.createLog(
       'Advance Status Update',
       `Advance status updated to ${updateAdvanceStatusDto.status}`,
       LogSeverity.INFO,
-      updatedAdvance.employee.id?.toString(),
+      updatedAdvance.employee.employeeId?.toString(),
       req,
     );
+
+    // Format amount for notification
+    const formattedAmount = updatedAdvance.amount.toLocaleString('en-KE', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    });
+
+    // Send status-specific notification
+    let message = '';
+    switch (updateAdvanceStatusDto.status) {
+      // case 'approved':
+      //   message = `Your advance request of KES ${formattedAmount} has been approved. The funds will be disbursed to your account shortly. Thank you for using our service.`;
+      //   break;
+      case 'declined':
+        message = `Your advance request of KES ${formattedAmount} has been declined. Reason: ${updateAdvanceStatusDto.comments || 'Not specified'}. For more information, please contact HR. Thank you for using our service.`;
+        break;
+      case 'disbursed':
+        message = `Your advance of KES ${formattedAmount} has been disbursed. Please check your Innova advance account balance to confirm the disbursal and withdraw the funds. Thank you for using our service.`;
+        break;
+      // case 'repaying':
+      //   message = `Your advance of KES ${formattedAmount} has entered repayment phase. Monthly installment of KES ${advance.installmentAmount.toLocaleString('en-KE', { minimumFractionDigits: 2 })} will be deducted from your salary. Thank you for using our service.`;
+      //   break;
+      // case 'repaid':
+      //   message = `Your advance of KES ${formattedAmount} has been fully repaid. You may now apply for another advance if needed. Thank you for your timely repayments.`;
+      //   break;
+    }
+
+    if (message && updatedAdvance.employee.phoneNumber) {
+      await this.notificationService.sendSMS(
+        updatedAdvance.employee.phoneNumber,
+        message,
+      );
+    }
 
     return updatedAdvance;
   }
 
   private validateStatusTransition(currentStatus: string, newStatus: string) {
     const validTransitions: { [key: string]: string[] } = {
-      pending: ['approved', 'declined'],
+      pending: ['approved', 'declined', 'disbursed'],
       approved: ['disbursed'],
       declined: [],
       disbursed: ['repaying'],

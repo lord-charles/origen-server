@@ -2,30 +2,18 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { AdvanceController } from './controllers/advance.controller';
 import { AdvanceService } from './services/advance.service';
-import { Advance, AdvanceSchema } from './schemas/advance.schema';
-import { User, UserSchema } from '../auth/schemas/user.schema';
-import {
-  SystemConfig,
-  SystemConfigSchema,
-} from '../system-config/schemas/system-config.schema';
 import { AdvancePaymentService } from './services/advance-payment.service';
 import { AdvancePaymentController } from './controllers/advance-payment.controller';
+import { Advance, AdvanceSchema } from './schemas/advance.schema';
+import { User, UserSchema } from '../auth/schemas/user.schema';
+import { SystemConfig, SystemConfigSchema } from '../system-config/schemas/system-config.schema';
 import { MpesaModule } from '../mpesa/mpesa.module';
 import { WalletModule } from '../wallet/wallet.module';
 import { NotificationsModule } from '../notifications/notifications.module';
-import { NotificationService } from '../notifications/services/notification.service';
-import {
-  MpesaTransaction,
-  MpesaTransactionSchema,
-} from '../mpesa/schemas/mpesa.schema';
-import {
-  WalletTransaction,
-  WalletTransactionSchema,
-} from '../wallet/schemas/wallet-transaction.schema';
-import {
-  SystemLog,
-  SystemLogSchema,
-} from '../system-logs/schemas/system-log.schema';
+import { SystemLogsModule } from '../system-logs/system-logs.module';
+import { MpesaTransaction, MpesaTransactionSchema } from '../mpesa/schemas/mpesa.schema';
+import { WalletTransaction, WalletTransactionSchema } from '../wallet/schemas/wallet-transaction.schema';
+import { SystemLog, SystemLogSchema } from '../system-logs/schemas/system-log.schema';
 import { SystemLogsService } from '../system-logs/services/system-logs.service';
 
 @Module({
@@ -40,15 +28,11 @@ import { SystemLogsService } from '../system-logs/services/system-logs.service';
     ]),
     MpesaModule,
     WalletModule,
+    SystemLogsModule,
     NotificationsModule,
   ],
   controllers: [AdvanceController, AdvancePaymentController],
-  providers: [
-    AdvanceService,
-    AdvancePaymentService,
-    NotificationService,
-    SystemLogsService,
-  ],
-  exports: [AdvanceService],
+  providers: [AdvanceService, AdvancePaymentService, SystemLogsService],
+  exports: [AdvanceService, AdvancePaymentService],
 })
 export class AdvanceModule {}

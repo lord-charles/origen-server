@@ -2,6 +2,7 @@ import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { Document, Types } from 'mongoose';
 import { ApiProperty } from '@nestjs/swagger';
 import { PaymentMethod } from '../enums/payment-method.enum';
+import { User } from '../../auth/schemas/user.schema';
 
 export type AdvanceDocument = Advance & Document;
 
@@ -12,7 +13,7 @@ export class Advance {
     example: '64abc123def4567890ghijk0',
   })
   @Prop({ type: Types.ObjectId, ref: 'User', required: true })
-  employee: Types.ObjectId;
+  employee: Types.ObjectId | User;
 
   @ApiProperty({
     description: 'Amount requested for the advance in KES',
