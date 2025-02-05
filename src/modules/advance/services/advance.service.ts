@@ -125,6 +125,22 @@ export class AdvanceService {
     // Get system configuration
     const config = await this.getAdvanceConfig();
 
+    // Check if advances are currently suspended
+    const now = new Date();
+    const activeSuspensionPeriod = config.suspensionPeriods?.find((period) => {
+      const startDate = new Date(period.startDate);
+      const endDate = new Date(period.endDate);
+      return period.isActive && now >= startDate && now <= endDate;
+    });
+
+    if (activeSuspensionPeriod) {
+      throw new BadRequestException(
+        `Advance applications are currently suspended until ${new Date(
+          activeSuspensionPeriod.endDate,
+        ).toLocaleDateString()}.`,
+      );
+    }
+
     // Check if employee has reached max active advances limit
     if (existingAdvances.length >= config.maxActiveAdvances) {
       throw new BadRequestException(
@@ -146,7 +162,6 @@ export class AdvanceService {
         `Requested amount exceeds available advance amount of ${availableAdvance}`,
       );
     }
-    console.log(createAdvanceDto);
     // Create new advance
     const advance = new this.advanceModel({
       ...createAdvanceDto,
@@ -263,7 +278,7 @@ export class AdvanceService {
     adminId: string,
     updateAdvanceStatusDto: UpdateAdvanceStatusDto,
     req?: Request,
-  ): Promise<Advance> {
+  ) {
     const advance = await this.findOne(id);
     const newStatus = updateAdvanceStatusDto.status;
 
@@ -610,17 +625,14 @@ export class AdvanceService {
       isActive: true,
     });
 
-    // Default values if no config found
-    const defaultConfig = {
-      advanceDefaultInterestRate: 5,
-      advanceMinAmount: 1000,
-      advanceMaxAmount: 50000,
-      advanceMaxRepaymentPeriod: 12,
-      maxAdvancePercentage: 50,
-      maxActiveAdvances: 1,
-    };
+    if (!config) {
+      throw new NotFoundException('Advance configuration not found');
+    }
 
-    return config?.data || defaultConfig;
+    return {
+      ...config.data,
+      suspensionPeriods: config.suspensionPeriods || [],
+    };
   }
 
   private async getBasicSalary(employeeId: string): Promise<number> {

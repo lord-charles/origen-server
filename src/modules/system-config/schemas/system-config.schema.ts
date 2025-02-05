@@ -76,6 +76,28 @@ export class SystemConfig {
   };
 
   @ApiProperty({
+    description: 'Suspension periods for advances',
+    example: [{
+      startDate: '2025-02-10T00:00:00.000Z',
+      endDate: '2025-02-15T23:59:59.999Z',
+      reason: 'System maintenance',
+      isActive: true
+    }]
+  })
+  @Prop({ type: [{
+    startDate: { type: String, required: true },
+    endDate: { type: String, required: true },
+    reason: { type: String, required: true },
+    isActive: { type: Boolean, default: true }
+  }], default: [] })
+  suspensionPeriods?: {
+    startDate: string;
+    endDate: string;
+    reason: string;
+    isActive: boolean;
+  }[];
+
+  @ApiProperty({
     description: 'Whether this configuration is active',
     example: true,
   })

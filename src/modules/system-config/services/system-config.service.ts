@@ -6,6 +6,10 @@ import {
   CreateSystemConfigDto,
   UpdateSystemConfigDto,
 } from '../dto/system-config.dto';
+import {
+  AddSuspensionPeriodDto,
+  UpdateSuspensionPeriodDto,
+} from '../dto/suspension-period.dto';
 
 @Injectable()
 export class SystemConfigService {
@@ -64,6 +68,83 @@ export class SystemConfigService {
     }
 
     return config;
+  }
+
+  async updateSuspensionPeriod(
+    key: string,
+    updateDto: UpdateSuspensionPeriodDto,
+    userId: string,
+  ) {
+    const config = await this.systemConfigModel.findOne({ key }).exec();
+    if (!config) {
+      throw new NotFoundException(`Configuration with key ${key} not found`);
+    }
+
+    if (
+      !config.suspensionPeriods ||
+      updateDto.index >= config.suspensionPeriods.length
+    ) {
+      throw new NotFoundException('Invalid suspension period index');
+    }
+
+    // Update the suspension period
+    config.suspensionPeriods[updateDto.index] = {
+      startDate: updateDto.startDate,
+      endDate: updateDto.endDate,
+      reason: updateDto.reason,
+      isActive: updateDto.isActive,
+    };
+
+    config.updatedBy = userId;
+    return await config.save();
+  }
+
+  async toggleSuspensionPeriod(
+    key: string,
+    index: number,
+    isActive: boolean,
+    userId: string,
+  ) {
+    const config = await this.systemConfigModel.findOne({ key }).exec();
+    if (!config) {
+      throw new NotFoundException(`Configuration with key ${key} not found`);
+    }
+
+    if (!config.suspensionPeriods || index >= config.suspensionPeriods.length) {
+      throw new NotFoundException('Invalid suspension period index');
+    }
+
+    // Update only the isActive status
+    config.suspensionPeriods[index].isActive = isActive;
+    config.updatedBy = userId;
+
+    return await config.save();
+  }
+
+  async addSuspensionPeriod(
+    key: string,
+    addDto: AddSuspensionPeriodDto,
+    userId: string,
+  ) {
+    const config = await this.systemConfigModel.findOne({ key }).exec();
+    if (!config) {
+      throw new NotFoundException(`Configuration with key ${key} not found`);
+    }
+
+    if (!config.suspensionPeriods) {
+      config.suspensionPeriods = [];
+    }
+
+    // Add new suspension period
+    config.suspensionPeriods.push({
+      startDate: addDto.startDate,
+      endDate: addDto.endDate,
+      reason: addDto.reason,
+      isActive: addDto.isActive,
+    });
+
+    config.updatedBy = userId;
+    return await config.save();
   }
 
   // Helper methods for specific configurations
