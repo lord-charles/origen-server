@@ -23,7 +23,12 @@ import { PaymentMethod } from '../enums/payment-method.enum';
 import { SystemLogsService } from '../../system-logs/services/system-logs.service';
 import { LogSeverity } from '../../system-logs/schemas/system-log.schema';
 import { Request } from 'express';
-import { startOfMonth, endOfMonth } from 'date-fns';
+import {
+  startOfMonth,
+  endOfMonth,
+  subMonths,
+  isWithinInterval,
+} from 'date-fns';
 
 @Injectable()
 export class AdvanceService {
@@ -51,10 +56,12 @@ export class AdvanceService {
     if (employee.employmentEndDate) {
       const today = new Date();
       const endDate = new Date(employee.employmentEndDate);
-      const lastMonthStart = new Date(endDate);
-      lastMonthStart.setMonth(lastMonthStart.getMonth() - 1);
+      const lastMonthInterval = {
+        start: startOfMonth(endDate),
+        end: endOfMonth(endDate),
+      };
 
-      if (today >= lastMonthStart) {
+      if (isWithinInterval(today, lastMonthInterval)) {
         throw new BadRequestException(
           'Cannot apply for advance in the last month of employment',
         );
