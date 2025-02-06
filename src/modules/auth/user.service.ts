@@ -249,6 +249,20 @@ export class UserService {
     return { message: 'Password updated successfully' };
   }
 
+  async updatePin(nationalId: string, hashedPin: string): Promise<User> {
+    const updatedUser = await this.userModel
+      .findOneAndUpdate({ nationalId }, { pin: hashedPin }, { new: true })
+      .exec();
+
+    if (!updatedUser) {
+      throw new NotFoundException(
+        `User with National ID ${nationalId} not found`,
+      );
+    }
+
+    return updatedUser;
+  }
+
   /**
    * Find a user by National ID
    * @param nationalId National ID

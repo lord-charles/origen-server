@@ -17,6 +17,7 @@ import {
   SystemLog,
   SystemLogSchema,
 } from '../system-logs/schemas/system-log.schema';
+import { NotificationsModule } from '../notifications/notifications.module';
 
 @Module({
   imports: [
@@ -35,6 +36,7 @@ import {
         },
       }),
     }),
+    NotificationsModule,
   ],
   controllers: [AuthController, UserController],
   providers: [

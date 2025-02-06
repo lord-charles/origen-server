@@ -17,7 +17,8 @@ import {
 } from '@nestjs/swagger';
 import { AuthService } from './auth.service';
 import { CreateUserDto } from './dto/user.dto';
-import { LoginUserDto } from './dto/login.dto';
+import { LoginUserDto, ResetPasswordDto } from './dto/login.dto';
+import { ResetPinDto } from './dto/reset-password.dto';
 import { AuthResponse } from './interfaces/auth.interface';
 import { Public } from './decorators/public.decorator';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -105,6 +106,33 @@ export class AuthController {
     @Req() req: ExpressRequest,
   ): Promise<AuthResponse> {
     return this.authService.login(loginUserDto, req);
+  }
+
+  @Public()
+  @Post('reset-password')
+  @ApiOperation({ summary: 'Reset password using National ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'Password reset successful',
+    type: String,
+  })
+  async resetPassword(
+    @Body() ResetPinDto: ResetPinDto,
+    @Req() req: ExpressRequest,
+  ) {
+    return this.authService.resetPin(ResetPinDto, req);
+  }
+
+  @Public()
+  @Post('reset-pin')
+  @ApiOperation({ summary: 'Reset PIN using National ID' })
+  @ApiResponse({
+    status: 200,
+    description: 'PIN reset successful',
+    type: String,
+  })
+  async resetPin(@Body() resetPinDto: ResetPinDto, @Req() req: ExpressRequest) {
+    return this.authService.resetPin(resetPinDto, req);
   }
 
   @Get('/profile')

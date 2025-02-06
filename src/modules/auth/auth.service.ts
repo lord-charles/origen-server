@@ -2,13 +2,14 @@ import {
   Injectable,
   UnauthorizedException,
   BadRequestException,
+  NotFoundException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
-import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { UserService } from './user.service';
 import { CreateUserDto } from './dto/user.dto';
 import { LoginUserDto } from './dto/login.dto';
+import { ResetPinDto } from './dto/reset-password.dto';
 import {
   JwtPayload,
   AuthResponse,
@@ -18,6 +19,7 @@ import { User, UserDocument } from './schemas/user.schema';
 import { SystemLogsService } from '../system-logs/services/system-logs.service';
 import { LogSeverity } from '../system-logs/schemas/system-log.schema';
 import { Request } from 'express';
+import { NotificationService } from '../notifications/services/notification.service';
 
 @Injectable()
 export class AuthService {
@@ -25,6 +27,7 @@ export class AuthService {
     private readonly userService: UserService,
     private readonly jwtService: JwtService,
     private readonly systemLogsService: SystemLogsService,
+    private readonly notificationService: NotificationService,
   ) {}
 
   async register(
@@ -147,6 +150,73 @@ export class AuthService {
       }
       throw error;
     }
+  }
+
+  async resetPin(
+    resetPinDto: ResetPinDto,
+    req?: Request,
+  ): Promise<{ message: string }> {
+    try {
+      // Find user by national ID
+      const user = await this.userService.findByNationalId(
+        resetPinDto.nationalId,
+      );
+
+      if (!user) {
+        throw new NotFoundException('User not found with this National ID');
+      }
+
+      // Generate a new 4-digit PIN
+      const newPin = this.generatePin();
+      const hashedPin = await bcrypt.hash(newPin, 10);
+
+      // Update user's PIN
+      await this.userService.updatePin(user.nationalId, hashedPin);
+
+      // Send SMS with new PIN if phone number exists
+      if (user.phoneNumber) {
+        await this.notificationService.sendSMS(
+          user.phoneNumber,
+          `Your new Innova App login PIN is: ${newPin}. Please keep this PIN secure and do not share it with anyone.`,
+        );
+
+        // Log PIN reset
+        await this.systemLogsService.createLog(
+          'PIN Reset',
+          `PIN reset completed for user: ${user.firstName} ${user.lastName}`,
+          LogSeverity.INFO,
+          user.employeeId.toString(),
+          req,
+        );
+
+        return {
+          message: 'PIN has been reset and sent to your phone number',
+        };
+      } else {
+        throw new BadRequestException('No phone number found for this user');
+      }
+    } catch (error) {
+      // Log reset failure
+      await this.systemLogsService.createLog(
+        'PIN Reset Failed',
+        `PIN reset failed for National ID ${resetPinDto.nationalId}: ${error.message}`,
+        LogSeverity.ERROR,
+        undefined,
+        req,
+      );
+
+      if (
+        error instanceof NotFoundException ||
+        error instanceof BadRequestException
+      ) {
+        throw error;
+      }
+      throw new Error(`PIN reset failed: ${error.message}`);
+    }
+  }
+
+  private generatePin(): string {
+    return Math.floor(1000 + Math.random() * 9000).toString();
   }
 
   private async generateToken(user: User): Promise<TokenPayload> {
