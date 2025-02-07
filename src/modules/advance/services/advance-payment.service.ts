@@ -38,7 +38,7 @@ export class AdvancePaymentService {
     // Get all approved advances for the employees
     const approvedAdvances = await this.advanceModel.find({
       employee: new Types.ObjectId(employeeId),
-      status: { $in: ['disbursed', 'repaying'] },
+      status: { $in: ['disbursed', 'repaying', 'repaid'] },
     });
 
     if (!approvedAdvances || approvedAdvances.length === 0) {
@@ -59,7 +59,7 @@ export class AdvancePaymentService {
           totalInterest: acc.totalInterest + interest,
         };
       },
-      { totalAmount: 0, totalInterest: 0 }
+      { totalAmount: 0, totalInterest: 0 },
     );
 
     // Calculate total withdrawn amount
@@ -69,7 +69,8 @@ export class AdvancePaymentService {
     );
 
     // Available amount is approved amount minus interest minus what's already withdrawn
-    const availableAmount = totals.totalAmount - totals.totalInterest - totalWithdrawnAmount;
+    const availableAmount =
+      totals.totalAmount - totals.totalInterest - totalWithdrawnAmount;
 
     return {
       approvedAmount: totals.totalAmount,
