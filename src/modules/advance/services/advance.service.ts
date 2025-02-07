@@ -393,51 +393,102 @@ export class AdvanceService {
       maximumFractionDigits: 2,
     });
 
+    const formattedInstallment = updatedAdvance.installmentAmount?.toLocaleString('en-KE', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }) || '0.00';
+
     // Send status-specific notification
     let message = '';
+    let emailSubject = '';
+    let emailTemplate = '';
+
+    const templateData = {
+      amount: formattedAmount,
+      installment: formattedInstallment,
+      comments: updateAdvanceStatusDto.comments,
+    };
+
     switch (updateAdvanceStatusDto.status) {
-      // case 'approved':
-      //   message = `Your advance request of KES ${formattedAmount} has been approved. The funds will be disbursed to your account shortly. Thank you for using our service.`;
-      //   break;
       case 'declined':
         message = `Your advance request of KES ${formattedAmount} has been declined. Reason: ${updateAdvanceStatusDto.comments || 'Not specified'}. For more information, please contact HR. Thank you for using our service.`;
+        emailSubject = 'Advance Request Declined';
+        emailTemplate = this.getStatusUpdateTemplate(
+          'Advance Request Declined',
+          'declined',
+          `We regret to inform you that your advance request has been declined.${updateAdvanceStatusDto.comments ? ` Reason: ${updateAdvanceStatusDto.comments}` : ''}`,
+          'Please contact HR for more information or to discuss alternative options.',
+          templateData
+        );
         break;
+
       case 'disbursed':
         message = `Your advance of KES ${formattedAmount} has been disbursed. Please check your Innova advance account balance to confirm the disbursal and withdraw the funds. Thank you for using our service.`;
+        emailSubject = 'Advance Disbursement Confirmation';
+        emailTemplate = this.getStatusUpdateTemplate(
+          'Advance Successfully Disbursed',
+          'disbursed',
+          'Your advance has been successfully disbursed to your account.',
+          'You can now check your Innova advance account balance and withdraw the funds.',
+          templateData
+        );
         break;
-      // case 'repaying':
-      //   message = `Your advance of KES ${formattedAmount} has entered repayment phase. Monthly installment of KES ${advance.installmentAmount.toLocaleString('en-KE', { minimumFractionDigits: 2 })} will be deducted from your salary. Thank you for using our service.`;
-      //   break;
-      // case 'repaid':
-      //   message = `Your advance of KES ${formattedAmount} has been fully repaid. You may now apply for another advance if needed. Thank you for your timely repayments.`;
-      //   break;
+
+      case 'approved':
+        message = `Your advance request of KES ${formattedAmount} has been approved. The funds will be disbursed to your account shortly. Thank you for using our service.`;
+        emailSubject = 'Advance Request Approved';
+        emailTemplate = this.getStatusUpdateTemplate(
+          'Advance Request Approved',
+          'approved',
+          'Congratulations! Your advance request has been approved.',
+          'The funds will be disbursed to your account shortly. You will receive another notification once the disbursement is complete.',
+          templateData
+        );
+        break;
+
+      case 'repaying':
+        message = `Your advance of KES ${formattedAmount} has entered repayment phase. Monthly installment of KES ${formattedInstallment} will be deducted from your salary. Thank you for using our service.`;
+        emailSubject = 'Advance Repayment Started';
+        emailTemplate = this.getStatusUpdateTemplate(
+          'Advance Repayment Initiated',
+          'repaying',
+          `Your advance has entered the repayment phase. A monthly installment of KES ${formattedInstallment} will be deducted from your salary.`,
+          'Ensure your salary account has sufficient funds for the monthly deductions. The repayment will be automatically processed.',
+          templateData
+        );
+        break;
+
+      case 'repaid':
+        message = `Your advance of KES ${formattedAmount} has been fully repaid. You may now apply for another advance if needed. Thank you for your timely repayments.`;
+        emailSubject = 'Advance Fully Repaid';
+        emailTemplate = this.getStatusUpdateTemplate(
+          'Advance Successfully Repaid',
+          'repaid',
+          'Congratulations! Your advance has been fully repaid.',
+          'You may now apply for another advance if needed. Thank you for your timely repayments.',
+          templateData
+        );
+        break;
     }
 
-    if (message && updatedAdvance.employee.phoneNumber) {
+    // Send SMS notification
+    if (message && updatedAdvance.employee?.phoneNumber) {
       await this.notificationService.sendSMS(
         updatedAdvance.employee.phoneNumber,
         message,
       );
     }
 
-    return updatedAdvance;
-  }
-
-  private validateStatusTransition(currentStatus: string, newStatus: string) {
-    const validTransitions: { [key: string]: string[] } = {
-      pending: ['approved', 'declined', 'disbursed'],
-      approved: ['disbursed'],
-      declined: [],
-      disbursed: ['repaying'],
-      repaying: ['repaid'],
-      repaid: [],
-    };
-
-    if (!validTransitions[currentStatus].includes(newStatus)) {
-      throw new BadRequestException(
-        `Cannot transition advance from ${currentStatus} to ${newStatus}`,
+    // Send email notification
+    if (emailTemplate && updatedAdvance.employee?.email) {
+      await this.notificationService.sendEmail(
+        updatedAdvance.employee.email,
+        emailSubject,
+        emailTemplate,
       );
     }
+
+    return updatedAdvance;
   }
 
   async findByEmployee(employeeId: string): Promise<Advance[]> {
@@ -831,5 +882,129 @@ export class AdvanceService {
       availableAdvance,
       ...metrics,
     };
+  }
+
+  private validateStatusTransition(currentStatus: string, newStatus: string) {
+    const validTransitions: { [key: string]: string[] } = {
+      pending: ['approved', 'declined', 'disbursed'],
+      approved: ['disbursed'],
+      declined: [],
+      disbursed: ['repaying'],
+      repaying: ['repaid'],
+      repaid: [],
+    };
+
+    if (!validTransitions[currentStatus].includes(newStatus)) {
+      throw new BadRequestException(
+        `Cannot transition advance from ${currentStatus} to ${newStatus}`,
+      );
+    }
+  }
+
+  private getStatusColor(status: string): string {
+    const colors = {
+      pending: '#f59e0b',   // Amber
+      approved: '#10b981',  // Emerald
+      declined: '#ef4444',  // Red
+      disbursed: '#3b82f6', // Blue
+      repaying: '#8b5cf6',  // Purple
+      repaid: '#059669',    // Green
+    };
+    return colors[status] || '#6b7280'; // Gray default
+  }
+
+  private getStatusIcon(status: string): string {
+    const icons = {
+      pending: '⏳',
+      approved: '✅',
+      declined: '❌',
+      disbursed: '💰',
+      repaying: '📅',
+      repaid: '🎉',
+    };
+    return icons[status] || '📋';
+  }
+
+  private getStatusBadge(status: string): string {
+    const color = this.getStatusColor(status);
+    const icon = this.getStatusIcon(status);
+    return `
+      <div style="
+        display: inline-block;
+        background-color: ${color}15;
+        color: ${color};
+        padding: 4px 12px;
+        border-radius: 9999px;
+        font-size: 14px;
+        font-weight: 500;
+        margin: 4px 0;
+      ">
+        ${icon} ${status.charAt(0).toUpperCase() + status.slice(1)}
+      </div>
+    `;
+  }
+
+  private getStatusUpdateTemplate(
+    title: string,
+    status: string,
+    details: string,
+    nextSteps: string,
+    data: {
+      amount: string;
+      installment?: string;
+      comments?: string;
+    }
+  ): string {
+    return `
+      <div style="padding: 20px 0;">
+        <div style="background-color: #f8fafc; border-left: 4px solid ${this.getStatusColor(status)}; padding: 16px; margin-bottom: 24px;">
+          <h2 style="margin: 0 0 16px 0; color: ${this.getStatusColor(status)};">
+            ${title}
+          </h2>
+          <div style="margin-bottom: 16px;">
+            ${this.getStatusBadge(status)}
+          </div>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">Advance Amount</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">KES ${data.amount}</td>
+            </tr>
+            ${data.installment ? `
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">Monthly Installment</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">KES ${data.installment}</td>
+            </tr>
+            ` : ''}
+            ${data.comments ? `
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">Comments</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">${data.comments}</td>
+            </tr>
+            ` : ''}
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">Update Date</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">${new Date().toLocaleDateString('en-KE', { 
+                day: '2-digit',
+                month: 'long',
+                year: 'numeric'
+              })}</td>
+            </tr>
+          </table>
+        </div>
+        <div style="margin-top: 24px; padding: 16px; background-color: ${this.getStatusColor(status)}08; border-radius: 4px;">
+          <h3 style="margin: 0 0 8px 0; color: ${this.getStatusColor(status)};">Status Details</h3>
+          <p style="margin: 0 0 16px 0; color: #075985; font-size: 14px;">
+            ${details}
+          </p>
+          <h3 style="margin: 0 0 8px 0; color: ${this.getStatusColor(status)};">Next Steps</h3>
+          <p style="margin: 0; color: #075985; font-size: 14px;">
+            ${nextSteps}
+          </p>
+        </div>
+        <p style="color: #64748b; font-size: 14px; margin-top: 24px;">
+          For any queries about your advance, please contact our support team.
+        </p>
+      </div>
+    `;
   }
 }
