@@ -38,7 +38,7 @@ export class AdvancePaymentService {
     // Get all approved advances for the employees
     const approvedAdvances = await this.advanceModel.find({
       employee: new Types.ObjectId(employeeId),
-      status: { $in: ['disbursed', 'repaying', 'repaid'] },
+      status: { $in: ['disbursed', 'repaying'] },
     });
 
     if (!approvedAdvances || approvedAdvances.length === 0) {
