@@ -199,6 +199,17 @@ export class AdvanceService {
     // Send SMS notification
     await this.notificationService.sendSMS(employee.phoneNumber, message);
 
+    // Format values for email template
+    const monthlyInstallment = (createAdvanceDto.amount / createAdvanceDto.repaymentPeriod).toLocaleString('en-KE', { 
+      minimumFractionDigits: 2 
+    });
+    const totalRepayment = createAdvanceDto.amount.toLocaleString('en-KE', { 
+      minimumFractionDigits: 2 
+    });
+    const paymentMethod = createAdvanceDto.preferredPaymentMethod 
+      ? createAdvanceDto.preferredPaymentMethod.toUpperCase() 
+      : 'NOT SPECIFIED';
+
     // Create HTML email template
     const htmlMessage = `
       <div style="padding: 20px 0;">
@@ -211,7 +222,7 @@ export class AdvanceService {
             </tr>
             <tr>
               <td style="padding: 8px 0; color: #64748b;">Purpose</td>
-              <td style="padding: 8px 0; color: #1e293b; text-align: right;">${createAdvanceDto.purpose}</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">${createAdvanceDto.purpose || 'Not specified'}</td>
             </tr>
             <tr>
               <td style="padding: 8px 0; color: #64748b;">Repayment Period</td>
@@ -223,15 +234,15 @@ export class AdvanceService {
             </tr>
             <tr>
               <td style="padding: 8px 0; color: #64748b;">Monthly Installment</td>
-              <td style="padding: 8px 0; color: #1e293b; text-align: right;">KES ${createAdvanceDto.amount / createAdvanceDto.repaymentPeriod}</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">KES ${monthlyInstallment}</td>
             </tr>
             <tr>
               <td style="padding: 8px 0; color: #64748b;">Total Repayment</td>
-              <td style="padding: 8px 0; color: #1e293b; text-align: right;">KES ${createAdvanceDto.amount}</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">KES ${totalRepayment}</td>
             </tr>
             <tr>
               <td style="padding: 8px 0; color: #64748b;">Payment Method</td>
-              <td style="padding: 8px 0; color: #1e293b; text-align: right;">${createAdvanceDto.preferredPaymentMethod.toUpperCase()}</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">${paymentMethod}</td>
             </tr>
           </table>
         </div>
