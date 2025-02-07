@@ -9,6 +9,9 @@ import { Advance } from '../../advance/schemas/advance.schema';
 import { SystemConfig } from '../../system-config/schemas/system-config.schema';
 import { NotificationService } from '../../notifications/services/notification.service';
 import { ConfigService } from '@nestjs/config';
+import { Buffer } from 'buffer';
+import { startOfMonth, endOfMonth, format } from 'date-fns';
+import { enGB } from 'date-fns/locale';
 
 @Injectable()
 export class ReportsService {
@@ -22,19 +25,33 @@ export class ReportsService {
     private readonly configService: ConfigService,
   ) {}
 
-  @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT)
+  @Cron(CronExpression.EVERY_DAY_AT_10AM, {
+    name: 'check-and-generate-monthly-report',
+    timeZone: 'Africa/Nairobi'
+  })
   async checkAndGenerateMonthlyReport() {
     try {
+      this.logger.debug('Running monthly report check...');
       const config = await this.getNotificationConfig();
-      if (!config?.data?.reportGenerationDay) return;
+      
+      if (!config?.data?.reportGenerationDay) {
+        this.logger.debug('Report generation day not configured');
+        return;
+      }
 
       const now = new Date();
+      this.logger.debug(`Current date: ${now.getDate()}, Report generation day: ${config.data.reportGenerationDay}`);
+      
       if (now.getDate() === config.data.reportGenerationDay) {
+        this.logger.log('Starting monthly report generation...');
         await this.generateAndSendMonthlyReport();
+      } else {
+        this.logger.debug('Not the configured day for report generation');
       }
     } catch (error) {
       this.logger.error(
         `Failed to check/generate monthly report: ${error.message}`,
+        error.stack,
       );
     }
   }
@@ -83,30 +100,41 @@ export class ReportsService {
 
   private async getMonthlyReportData() {
     const now = new Date();
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+    const monthStart = startOfMonth(now);
+    const monthEnd = endOfMonth(now);
 
     const advances = await this.advanceModel
       .find({
-        createdAt: { $gte: startOfMonth, $lte: endOfMonth },
+        createdAt: { $gte: monthStart, $lte: monthEnd },
       })
-      .populate('employee', 'name email department position')
-      .populate('approvedBy', 'name')
-      .populate('disbursedBy', 'name')
+      .populate('employee', 'firstName lastName email phoneNumber nationalId employeeId department position')
+      .populate('approvedBy', 'firstName lastName employeeId')
+      .populate('disbursedBy', 'firstName lastName employeeId')
       .exec();
 
     return {
-      period: `${startOfMonth.toLocaleDateString('en-KE')} - ${endOfMonth.toLocaleDateString('en-KE')}`,
+      period: `${format(monthStart, 'dd MMM yyyy', { locale: enGB })} - ${format(monthEnd, 'dd MMM yyyy', { locale: enGB })}`,
       advances,
       summary: this.calculateSummary(advances),
     };
   }
 
   private calculateSummary(advances: any[]) {
+    const totalAmount = advances.reduce((sum, adv) => sum + adv.amount, 0);
+    const totalRepaid = advances.reduce((sum, adv) => sum + adv.amountRepaid, 0);
+    const totalWithdrawn = advances.reduce((sum, adv) => sum + (adv.amountWithdrawn || 0), 0);
+    const totalInterest = advances.reduce((sum, adv) => sum + ((adv.amount * adv.interestRate) / 100), 0);
+
     return {
       totalAdvances: advances.length,
-      totalAmount: advances.reduce((sum, adv) => sum + adv.amount, 0),
-      totalRepaid: advances.reduce((sum, adv) => sum + adv.amountRepaid, 0),
+      totalAmount,
+      totalRepaid,
+      totalWithdrawn,
+      totalInterest,
+      totalOutstanding: totalAmount - totalRepaid,
+      averageAmount: advances.length ? totalAmount / advances.length : 0,
+      averageRepaymentPeriod: advances.length ? 
+        advances.reduce((sum, adv) => sum + adv.repaymentPeriod, 0) / advances.length : 0,
       statusBreakdown: this.getStatusBreakdown(advances),
       departmentBreakdown: this.getDepartmentBreakdown(advances),
     };
@@ -153,170 +181,411 @@ export class ReportsService {
     const worksheet = workbook.addWorksheet('Monthly Advance Report');
 
     // Styling
-    worksheet.getColumn(1).width = 20;
-    worksheet.getColumn(2).width = 15;
-    worksheet.getColumn(3).width = 15;
-    worksheet.getColumn(4).width = 20;
-    worksheet.getColumn(5).width = 15;
+    worksheet.properties.defaultRowHeight = 20;
+    
+    // Define columns with proper width and styling
+    worksheet.columns = [
+      { header: 'Employee ID', key: 'empId', width: 15 },
+      { header: 'Full Name', key: 'name', width: 25 },
+      { header: 'National ID', key: 'nationalId', width: 15 },
+      { header: 'Email', key: 'email', width: 30 },
+      { header: 'Phone', key: 'phone', width: 20 },
+      { header: 'Department', key: 'department', width: 20 },
+      { header: 'Position', key: 'position', width: 20 },
+      { header: 'Purpose', key: 'purpose', width: 25 },
+      { header: 'Advance Amount', key: 'amount', width: 15 },
+      { header: 'Interest Rate (%)', key: 'interestRate', width: 15 },
+      { header: 'Interest Amount', key: 'interestAmount', width: 15 },
+      { header: 'Total Repayment', key: 'totalRepayment', width: 15 },
+      { header: 'Amount Withdrawn', key: 'amountWithdrawn', width: 15 },
+      { header: 'Repaid Amount', key: 'repaidAmount', width: 15 },
+      { header: 'Outstanding', key: 'outstanding', width: 15 },
+      { header: 'Repayment Period', key: 'repaymentPeriod', width: 15 },
+      { header: 'Installment Amount', key: 'installmentAmount', width: 15 },
+      { header: 'Status', key: 'status', width: 15 },
+      { header: 'Request Date', key: 'requestDate', width: 20 },
+      { header: 'Approval Date', key: 'approvalDate', width: 20 },
+      { header: 'Approved By', key: 'approvedBy', width: 20 },
+      { header: 'Disbursed Date', key: 'disbursedDate', width: 20 },
+      { header: 'Disbursed By', key: 'disbursedBy', width: 20 },
+      { header: 'Payment Method', key: 'paymentMethod', width: 15 },
+      { header: 'Comments', key: 'comments', width: 30 },
+    ];
 
-    // Title
-    worksheet.mergeCells('A1:E1');
+    // Title and Report Period
+    worksheet.mergeCells('A1:Y1');
     const titleCell = worksheet.getCell('A1');
     titleCell.value = `Monthly Advance Report (${data.period})`;
     titleCell.font = { size: 16, bold: true };
     titleCell.alignment = { horizontal: 'center' };
+    titleCell.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FFE7F3F9' }
+    };
 
-    // Summary Section
-    worksheet.addRow(['']);
-    worksheet.addRow(['Summary']);
-    worksheet.addRow(['Total Advances', data.summary.totalAdvances]);
-    worksheet.addRow([
-      'Total Amount',
-      `KES ${data.summary.totalAmount.toLocaleString()}`,
-    ]);
-    worksheet.addRow([
-      'Total Repaid',
-      `KES ${data.summary.totalRepaid.toLocaleString()}`,
-    ]);
+    // Add summary section
+    worksheet.addRow([]);
+    const summaryStartRow = 3;
+    worksheet.mergeCells(`A${summaryStartRow}:D${summaryStartRow}`);
+    worksheet.getCell(`A${summaryStartRow}`).value = 'Summary';
+    worksheet.getCell(`A${summaryStartRow}`).font = { bold: true, size: 12 };
 
-    // Status Breakdown
-    worksheet.addRow(['']);
-    worksheet.addRow(['Status Breakdown']);
-    Object.entries(data.summary.statusBreakdown).forEach(([status, count]) => {
-      worksheet.addRow([status, count]);
-    });
+    worksheet.addRow(['Total Advances', data.summary.totalAdvances, 'Total Amount', `KES ${data.summary.totalAmount.toLocaleString()}`]);
+    worksheet.addRow(['Total Repaid', `KES ${data.summary.totalRepaid.toLocaleString()}`, 'Outstanding', `KES ${data.summary.totalOutstanding.toLocaleString()}`]);
+    worksheet.addRow(['Total Withdrawn', `KES ${data.summary.totalWithdrawn.toLocaleString()}`, 'Total Interest', `KES ${data.summary.totalInterest.toLocaleString()}`]);
+    worksheet.addRow(['Average Amount', `KES ${data.summary.averageAmount.toLocaleString()}`, 'Avg. Repayment Period', `${data.summary.averageRepaymentPeriod.toFixed(1)} months`]);
 
-    // Department Breakdown
-    worksheet.addRow(['']);
-    worksheet.addRow(['Department Breakdown']);
-    worksheet.addRow(['Department', 'Count', 'Total Amount']);
-    Object.entries(data.summary.departmentBreakdown).forEach(
-      ([dept, info]: [string, any]) => {
-        worksheet.addRow([
-          dept,
-          info.count,
-          `KES ${info.amount.toLocaleString()}`,
-        ]);
-      },
-    );
+    // Style header row
+    const headerRow = worksheet.addRow([]);
+    headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
+    headerRow.fill = {
+      type: 'pattern',
+      pattern: 'solid',
+      fgColor: { argb: 'FF0891B2' }
+    };
+    headerRow.alignment = { horizontal: 'center', vertical: 'middle' };
 
-    // Detailed List
-    worksheet.addRow(['']);
-    worksheet.addRow(['Detailed Advance List']);
-    worksheet.addRow([
-      'Employee',
-      'Amount',
-      'Status',
-      'Request Date',
-      'Department',
-    ]);
-
+    // Add data rows
     data.advances.forEach((advance) => {
-      worksheet.addRow([
-        advance.employee?.name || 'N/A',
-        `KES ${advance.amount.toLocaleString()}`,
-        advance.status,
-        new Date(advance.requestedDate).toLocaleDateString('en-KE'),
-        advance.employee?.department || 'N/A',
-      ]);
+      const interestAmount = (advance.amount * advance.interestRate) / 100;
+      const outstanding = advance.totalRepayment - (advance.amountRepaid || 0);
+
+      const row = worksheet.addRow({
+        empId: advance.employee?.employeeId || 'N/A',
+        name: advance.employee?.firstName && advance.employee?.lastName ? 
+          `${advance.employee.firstName} ${advance.employee.lastName}` : 'N/A',
+        nationalId: advance.employee?.nationalId || 'N/A',
+        email: advance.employee?.email || 'N/A',
+        phone: advance.employee?.phoneNumber || 'N/A',
+        department: advance.employee?.department || 'N/A',
+        position: advance.employee?.position || 'N/A',
+        purpose: advance.purpose,
+        amount: advance.amount,
+        interestRate: advance.interestRate / 100,
+        interestAmount: interestAmount,
+        totalRepayment: advance.totalRepayment,
+        amountWithdrawn: advance.amountWithdrawn || 0,
+        repaidAmount: advance.amountRepaid || 0,
+        outstanding: outstanding,
+        repaymentPeriod: advance.repaymentPeriod,
+        installmentAmount: advance.installmentAmount,
+        status: advance.status,
+        requestDate: format(new Date(advance.requestedDate), 'dd MMM yyyy HH:mm', { locale: enGB }),
+        approvalDate: advance.approvedDate ? format(new Date(advance.approvedDate), 'dd MMM yyyy HH:mm', { locale: enGB }) : 'N/A',
+        approvedBy: advance.approvedBy?.firstName ? 
+          `${advance.approvedBy.firstName} ${advance.approvedBy.lastName} (${advance.approvedBy.employeeId})` : 'N/A',
+        disbursedDate: advance.disbursedDate ? format(new Date(advance.disbursedDate), 'dd MMM yyyy HH:mm', { locale: enGB }) : 'N/A',
+        disbursedBy: advance.disbursedBy?.firstName ? 
+          `${advance.disbursedBy.firstName} ${advance.disbursedBy.lastName} (${advance.disbursedBy.employeeId})` : 'N/A',
+        paymentMethod: advance.preferredPaymentMethod,
+        comments: advance.comments || 'N/A',
+      });
+
+      // Style number columns
+      ['amount', 'interestAmount', 'totalRepayment', 'amountWithdrawn', 'repaidAmount', 'outstanding', 'installmentAmount'].forEach(key => {
+        const cell = row.getCell(worksheet.getColumn(key).number);
+        cell.numFmt = '#,##0.00';
+        cell.alignment = { horizontal: 'right' };
+      });
+
+      // Style percentage columns
+      ['interestRate'].forEach(key => {
+        const cell = row.getCell(worksheet.getColumn(key).number);
+        cell.numFmt = '0.00%';
+        cell.alignment = { horizontal: 'right' };
+      });
+
+      // Add conditional formatting for status
+      const statusCell = row.getCell(worksheet.getColumn('status').number);
+      switch (advance.status.toLowerCase()) {
+        case 'approved':
+          statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF90EE90' } };
+          break;
+        case 'pending':
+          statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFFD700' } };
+          break;
+        case 'disbursed':
+          statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF87CEEB' } };
+          break;
+        case 'rejected':
+          statusCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFFF6B6B' } };
+          break;
+      }
     });
 
-    return workbook.xlsx.writeBuffer();
+    // Add borders to all cells
+    worksheet.eachRow((row, rowNumber) => {
+      row.eachCell((cell) => {
+        cell.border = {
+          top: { style: 'thin' },
+          left: { style: 'thin' },
+          bottom: { style: 'thin' },
+          right: { style: 'thin' }
+        };
+      });
+    });
+
+    // Freeze the header row
+    worksheet.views = [
+      { state: 'frozen', xSplit: 0, ySplit: 8, topLeftCell: 'A9', activeCell: 'A9' }
+    ];
+
+    return await workbook.xlsx.writeBuffer() as Buffer;
   }
 
   private async generatePDFReport(data: any): Promise<Buffer> {
-    return new Promise((resolve) => {
-      const chunks = [];
-      const doc = new PDFDocument();
-
-      doc.on('data', chunks.push.bind(chunks));
-      doc.on('end', () => {
-        resolve(Buffer.concat(chunks));
-      });
-
-      // Title
-      doc
-        .fontSize(16)
-        .text(`Monthly Advance Report (${data.period})`, { align: 'center' });
-      doc.moveDown();
-
-      // Summary
-      doc.fontSize(14).text('Summary');
-      doc
-        .fontSize(12)
-        .text(`Total Advances: ${data.summary.totalAdvances}`)
-        .text(`Total Amount: KES ${data.summary.totalAmount.toLocaleString()}`)
-        .text(`Total Repaid: KES ${data.summary.totalRepaid.toLocaleString()}`);
-      doc.moveDown();
-
-      // Status Breakdown
-      doc.fontSize(14).text('Status Breakdown');
-      doc.fontSize(12);
-      Object.entries(data.summary.statusBreakdown).forEach(
-        ([status, count]) => {
-          doc.text(`${status}: ${count}`);
-        },
-      );
-      doc.moveDown();
-
-      // Department Breakdown
-      doc.fontSize(14).text('Department Breakdown');
-      doc.fontSize(12);
-      Object.entries(data.summary.departmentBreakdown).forEach(
-        ([dept, info]: [string, any]) => {
-          doc.text(
-            `${dept}: ${info.count} advances, KES ${info.amount.toLocaleString()}`,
-          );
-        },
-      );
-      doc.moveDown();
-
-      // Detailed List
-      doc.fontSize(14).text('Detailed Advance List');
-      doc.fontSize(12);
-      data.advances.forEach((advance) => {
-        doc
-          .text('----------------------------------------')
-          .text(`Employee: ${advance.employee?.name || 'N/A'}`)
-          .text(`Amount: KES ${advance.amount.toLocaleString()}`)
-          .text(`Status: ${advance.status}`)
-          .text(
-            `Request Date: ${new Date(advance.requestedDate).toLocaleDateString('en-KE')}`,
-          )
-          .text(`Department: ${advance.employee?.department || 'N/A'}`)
-          .moveDown(0.5);
-      });
-
-      doc.end();
+    const doc = new PDFDocument({
+      size: 'A4',
+      margins: { top: 50, bottom: 50, left: 50, right: 50 },
+      bufferPages: true,
     });
+    
+    const buffers: any[] = [];
+    doc.on('data', buffers.push.bind(buffers));
+  
+    // Header
+    doc.fontSize(24).font('Helvetica-Bold').text('Innova Limited', { align: 'center' });
+    doc.moveDown(0.5);
+    doc.fontSize(18).text('Monthly Advance Report', { align: 'center' });
+    doc.fontSize(14).text(`Period: ${data.period}`, { align: 'center' });
+    doc.moveDown(1.5);
+  
+    // Summary Section
+    doc.fontSize(16).font('Helvetica-Bold').text('Summary', { underline: true });
+    doc.moveDown(0.5);
+    
+    const summaryData = [
+      ['Total Advances', data.summary.totalAdvances],
+      ['Total Amount', `KES ${data.summary.totalAmount.toLocaleString()}`],
+      ['Total Repaid', `KES ${data.summary.totalRepaid.toLocaleString()}`],
+      ['Total Interest', `KES ${data.summary.totalInterest.toLocaleString()}`],
+      ['Outstanding', `KES ${data.summary.totalOutstanding.toLocaleString()}`],
+      ['Total Withdrawn', `KES ${data.summary.totalWithdrawn.toLocaleString()}`],
+      ['Average Amount', `KES ${data.summary.averageAmount.toLocaleString()}`],
+      ['Avg. Repayment Period', `${data.summary.averageRepaymentPeriod.toFixed(1)} months`]
+    ];
+  
+    summaryData.forEach(([label, value]) => {
+      doc.fontSize(12).font('Helvetica').text(`${label}: ${value}`);
+    });
+    
+    doc.moveDown(1.5);
+  
+    // Status & Department Breakdown
+    doc.fontSize(14).font('Helvetica-Bold').text('Status Breakdown', { underline: true });
+    Object.entries(data.summary.statusBreakdown).forEach(([status, count]) => {
+      doc.fontSize(12).text(`• ${status}: ${count}`, { indent: 10 });
+    });
+    doc.moveDown(1);
+    
+    doc.fontSize(14).text('Department Breakdown', { underline: true });
+    Object.entries(data.summary.departmentBreakdown).forEach(([dept, info]: [string, any]) => {
+      doc.fontSize(12).text(`• ${dept}: ${info.count} advances - KES ${info.amount.toLocaleString()}`, { indent: 10 });
+    });
+    
+    doc.moveDown(2);
+  
+    // Detailed Advance List
+    doc.fontSize(16).font('Helvetica-Bold').text('Detailed Advance List', { underline: true });
+    doc.moveDown(1);
+    
+    data.advances.forEach((advance: any) => {
+      if (doc.y > 650) doc.addPage();
+      
+      doc.fontSize(13).font('Helvetica-Bold').text(`Employee: ${advance.employee?.firstName} ${advance.employee?.lastName}`);
+      doc.fontSize(11).font('Helvetica').text(`ID: ${advance.employee?.employeeId || 'N/A'}`);
+      doc.text(`Department: ${advance.employee?.department || 'N/A'}`);
+      doc.text(`Position: ${advance.employee?.position || 'N/A'}`);
+      doc.moveDown(0.5);
+  
+      doc.fontSize(13).font('Helvetica-Bold').text('Financial Details');
+      doc.fontSize(11).font('Helvetica').text(`Amount: KES ${advance.amount.toLocaleString()}`);
+      doc.text(`Interest (${advance.interestRate}%): KES ${((advance.amount * advance.interestRate) / 100).toLocaleString()}`);
+      doc.text(`Repaid: KES ${(advance.amountRepaid || 0).toLocaleString()}`);
+      doc.text(`Outstanding: KES ${(advance.totalRepayment - (advance.amountRepaid || 0)).toLocaleString()}`);
+      doc.moveDown(0.5);
+  
+      doc.fontSize(13).font('Helvetica-Bold').text('Status & Timeline');
+      doc.fontSize(11).text(`Status: ${advance.status.toUpperCase()}`);
+      doc.text(`Requested: ${advance.requestedDate}`);
+      if (advance.approvedDate) doc.text(`Approved: ${advance.approvedDate}`);
+      if (advance.disbursedDate) doc.text(`Disbursed: ${advance.disbursedDate}`);
+      
+      doc.moveDown(1.5);
+    });
+  
+    // Page numbers
+    let pageCount = doc.bufferedPageRange().count;
+    for (let i = 0; i < pageCount; i++) {
+      doc.switchToPage(i);
+      if (i > 0) {
+        doc.fontSize(12).text('Innova Limited - Monthly Advance Report', 50, 30);
+        doc.text(data.period, { align: 'right' });
+      }
+      doc.fontSize(10).text(`Page ${i + 1} of ${pageCount}`, 50, doc.page.height - 50, { align: 'center' });
+    }
+    
+    doc.end();
+  
+    return new Promise((resolve) => {
+      doc.on('end', () => resolve(Buffer.concat(buffers)));
+    });
+  }
+  
+
+  private getStatusColor(status: string): string {
+    switch (status.toLowerCase()) {
+      case 'approved':
+        return '#2ecc71';
+      case 'pending':
+        return '#f1c40f';
+      case 'disbursed':
+        return '#3498db';
+      case 'rejected':
+        return '#e74c3c';
+      default:
+        return '#000000';
+    }
   }
 
   private async generateCSVReport(data: any): Promise<Buffer> {
-    const records = data.advances.map((advance) => ({
-      employee: advance.employee?.name || 'N/A',
+    const records = data.advances.map((advance: any) => ({
+      // Employee Details
+      employeeId: advance.employee?.employeeId || 'N/A',
+      firstName: advance.employee?.firstName || 'N/A',
+      lastName: advance.employee?.lastName || 'N/A',
+      nationalId: advance.employee?.nationalId || 'N/A',
+      email: advance.employee?.email || 'N/A',
+      phone: advance.employee?.phoneNumber || 'N/A',
       department: advance.employee?.department || 'N/A',
+      position: advance.employee?.position || 'N/A',
+      
+      // Advance Details
+      purpose: advance.purpose || 'N/A',
       amount: advance.amount,
+      interestRate: advance.interestRate,
+      interestAmount: (advance.amount * advance.interestRate) / 100,
+      totalRepayment: advance.totalRepayment,
+      amountWithdrawn: advance.amountWithdrawn || 0,
+      amountRepaid: advance.amountRepaid || 0,
+      outstanding: advance.totalRepayment - (advance.amountRepaid || 0),
+      repaymentPeriod: advance.repaymentPeriod,
+      installmentAmount: advance.installmentAmount,
+      
+      // Status and Dates
       status: advance.status,
-      requestDate: new Date(advance.requestedDate).toLocaleDateString('en-KE'),
-      repaidAmount: advance.amountRepaid,
+      requestDate: format(new Date(advance.requestedDate), 'dd MMM yyyy HH:mm', { locale: enGB }),
+      approvalDate: advance.approvedDate ? format(new Date(advance.approvedDate), 'dd MMM yyyy HH:mm', { locale: enGB }) : 'N/A',
+      approvedBy: advance.approvedBy?.firstName ? 
+        `${advance.approvedBy.firstName} ${advance.approvedBy.lastName} (${advance.approvedBy.employeeId})` : 'N/A',
+      disbursedDate: advance.disbursedDate ? format(new Date(advance.disbursedDate), 'dd MMM yyyy HH:mm', { locale: enGB }) : 'N/A',
+      disbursedBy: advance.disbursedBy?.firstName ? 
+        `${advance.disbursedBy.firstName} ${advance.disbursedBy.lastName} (${advance.disbursedBy.employeeId})` : 'N/A',
+      
+      // Additional Details
+      paymentMethod: advance.preferredPaymentMethod,
+      comments: advance.comments || 'N/A'
     }));
 
     const csvWriter = createObjectCsvWriter({
       path: 'temp.csv',
       header: [
-        { id: 'employee', title: 'Employee' },
+        // Employee Details
+        { id: 'employeeId', title: 'Employee ID' },
+        { id: 'firstName', title: 'First Name' },
+        { id: 'lastName', title: 'Last Name' },
+        { id: 'nationalId', title: 'National ID' },
+        { id: 'email', title: 'Email' },
+        { id: 'phone', title: 'Phone' },
         { id: 'department', title: 'Department' },
-        { id: 'amount', title: 'Amount' },
+        { id: 'position', title: 'Position' },
+        
+        // Advance Details
+        { id: 'purpose', title: 'Purpose' },
+        { id: 'amount', title: 'Amount (KES)' },
+        { id: 'interestRate', title: 'Interest Rate (%)' },
+        { id: 'interestAmount', title: 'Interest Amount (KES)' },
+        { id: 'totalRepayment', title: 'Total Repayment (KES)' },
+        { id: 'amountWithdrawn', title: 'Amount Withdrawn (KES)' },
+        { id: 'amountRepaid', title: 'Amount Repaid (KES)' },
+        { id: 'outstanding', title: 'Outstanding (KES)' },
+        { id: 'repaymentPeriod', title: 'Repayment Period (Months)' },
+        { id: 'installmentAmount', title: 'Installment Amount (KES)' },
+        
+        // Status and Dates
         { id: 'status', title: 'Status' },
         { id: 'requestDate', title: 'Request Date' },
-        { id: 'repaidAmount', title: 'Repaid Amount' },
-      ],
+        { id: 'approvalDate', title: 'Approval Date' },
+        { id: 'approvedBy', title: 'Approved By' },
+        { id: 'disbursedDate', title: 'Disbursed Date' },
+        { id: 'disbursedBy', title: 'Disbursed By' },
+        
+        // Additional Details
+        { id: 'paymentMethod', title: 'Payment Method' },
+        { id: 'comments', title: 'Comments' }
+      ]
     });
 
     await csvWriter.writeRecords(records);
-    return Buffer.from(
-      records.map((r) => Object.values(r).join(',')).join('\n'),
-    );
+
+    // Add summary section at the top
+    const summaryLines = [
+      `Innova Limited - Monthly Advance Report (${data.period})`,
+      '',
+      'Summary',
+      `Total Advances,${data.summary.totalAdvances}`,
+      `Total Amount (KES),${data.summary.totalAmount.toLocaleString()}`,
+      `Total Repaid (KES),${data.summary.totalRepaid.toLocaleString()}`,
+      `Outstanding (KES),${data.summary.totalOutstanding.toLocaleString()}`,
+      `Total Withdrawn (KES),${data.summary.totalWithdrawn.toLocaleString()}`,
+      `Total Interest (KES),${data.summary.totalInterest.toLocaleString()}`,
+      `Average Amount (KES),${data.summary.averageAmount.toLocaleString()}`,
+      `Average Repayment Period (Months),${data.summary.averageRepaymentPeriod.toFixed(1)}`,
+      '',
+      'Detailed Records Below',
+      ''
+    ].join('\n');
+
+    const detailedRecords = records.map(record => 
+      Object.values(record).join(',')
+    ).join('\n');
+
+    return Buffer.from(summaryLines + '\n' + detailedRecords);
+  }
+
+  async generateManualReport(docformat: 'pdf' | 'excel' | 'csv'): Promise<{ buffer: Buffer; filename: string; contentType: string }> {
+    try {
+      const data = await this.getMonthlyReportData();
+      const now = new Date();
+      const timestamp = format(now, 'yyyy-MM-dd_HH-mm', { locale: enGB });
+      
+      switch (docformat.toLowerCase()) {
+        case 'pdf':
+          return {
+            buffer: await this.generatePDFReport(data),
+            filename: `advance_report_${timestamp}.pdf`,
+            contentType: 'application/pdf'
+          };
+        case 'excel':
+          return {
+            buffer: await this.generateExcelReport(data),
+            filename: `advance_report_${timestamp}.xlsx`,
+            contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+          };
+        case 'csv':
+          return {
+            buffer: await this.generateCSVReport(data),
+            filename: `advance_report_${timestamp}.csv`,
+            contentType: 'text/csv'
+          };
+        default:
+          throw new Error('Unsupported format');
+      }
+    } catch (error) {
+      this.logger.error(`Failed to generate manual report: ${error.message}`, error.stack);
+      throw error;
+    }
   }
 
   private async sendReportEmail(
@@ -328,7 +597,7 @@ export class ReportsService {
     const message = this.generateEmailTemplate();
 
     try {
-      await this.notificationService.sendEmail(email, subject, message, [
+      await this.notificationService.sendEmailWithAttachments(email, subject, message, [
         {
           filename: `advance_report.${format}`,
           content: reportBuffer,

@@ -128,6 +128,57 @@ export class NotificationService {
     }
   }
 
+  async sendEmailWithAttachments(
+    to: string,
+    subject: string,
+    message: string,
+    attachments: Array<{
+      filename: string;
+      content: Buffer | string;
+    }>,
+  ): Promise<boolean> {
+    try {
+      // Verify transporter connection
+      await this.transporter.verify();
+
+      const mailOptions = {
+        from: {
+          name: 'Innova App',
+          address: this.configService.get<string>('SMTP_USER'),
+        },
+        to,
+        subject,
+        text: message,
+        html: `
+          <div style="font-family: Arial, sans-serif; padding: 20px; color: #333;">
+            <h2 style="color: #2c3e50;">Innova App Notification</h2>
+            <div style="padding: 20px; background-color: #f8f9fa; border-radius: 5px;">
+              ${message.replace(/\n/g, '<br>')}
+            </div>
+            <p style="margin-top: 20px; font-size: 12px; color: #666;">
+              This is an automated message, please do not reply to this email.
+            </p>
+          </div>
+        `,
+        attachments,
+      };
+
+      const info = await this.transporter.sendMail(mailOptions);
+      this.logger.log(
+        `Email with attachments sent successfully to ${to} - MessageId: ${info.messageId}`,
+      );
+      return true;
+    } catch (error) {
+      this.logger.error(`Error sending email with attachments to ${to}: ${error.message}`);
+      if (error.code === 'ECONNECTION' || error.code === 'EAUTH') {
+        this.logger.error(
+          'SMTP connection or authentication error. Please check your SMTP settings.',
+        );
+      }
+      return false;
+    }
+  }
+
   async sendTransactionNotification(
     senderPhone: string,
     recipientPhone: string,

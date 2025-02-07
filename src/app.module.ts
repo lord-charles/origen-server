@@ -11,9 +11,12 @@ import { SystemConfigModule } from './modules/system-config/system-config.module
 import { NotificationsModule } from './modules/notifications/notifications.module';
 import { StatisticsModule } from './modules/statistics/statistics.module';
 import { SystemLogsModule } from './modules/system-logs/system-logs.module';
+import { ScheduleModule } from '@nestjs/schedule';
+import { ReportsModule } from './modules/reports/reports.module';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     AuthModule,
     WalletModule,
     AdvanceModule,
@@ -25,6 +28,7 @@ import { SystemLogsModule } from './modules/system-logs/system-logs.module';
     NotificationsModule,
     StatisticsModule,
     SystemLogsModule,
+    ReportsModule,
   ],
   controllers: [],
   providers: [],
