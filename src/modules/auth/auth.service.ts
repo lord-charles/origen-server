@@ -175,8 +175,9 @@ export class AuthService {
 
       // Send SMS with new PIN if phone number exists
       if (user.phoneNumber) {
-        await this.notificationService.sendSMS(
+        await this.notificationService.sendRegistrationPin(
           user.phoneNumber,
+          user.email,
           `Your new Innova App login PIN is: ${newPin}. Please keep this PIN secure and do not share it with anyone.`,
         );
 
