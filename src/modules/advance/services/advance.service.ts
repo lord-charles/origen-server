@@ -489,6 +489,34 @@ export class AdvanceService {
     // Calculate next payday (25th of current or next month)
     const nextPayday = this.calculateNextPayday();
 
+    const approvedAdvances = await this.advanceModel.find({
+      employee: new Types.ObjectId(employeeId),
+      status: { $in: ['disbursed', 'repaying'] },
+    });
+
+    // Calculate total approved amount and interest separately
+    const totals = approvedAdvances.reduce(
+      (acc, advance) => {
+        const interestRate = advance.interestRate || 0;
+        const interest = (advance.amount * interestRate) / 100;
+        return {
+          totalAmount: acc.totalAmount + advance.amount,
+          totalInterest: acc.totalInterest + interest,
+        };
+      },
+      { totalAmount: 0, totalInterest: 0 },
+    );
+
+    // Calculate total withdrawn amount
+    const totalWithdrawnAmount = approvedAdvances.reduce(
+      (sum, advance) => sum + (advance.amountWithdrawn || 0),
+      0,
+    );
+
+    // Available amount is approved amount minus interest minus what's already withdrawn
+    const availableAmount =
+      totals.totalAmount - totals.totalInterest - totalWithdrawnAmount;
+
     // Return calculated advance details
     return {
       availableAdvance: Math.max(
@@ -500,7 +528,7 @@ export class AdvanceService {
       advancePercentage: (availableAdvance / basicSalary) * 100,
       previousAdvances: metrics.totalDisbursed,
       totalAmountRepaid: metrics.totalRepaid,
-      repaymentBalance: metrics.repaymentBalance,
+      repaymentBalance: Math.ceil(metrics.repaymentBalance - availableAmount),
       nextPayday: nextPayday.toISOString().split('T')[0],
     };
   }
