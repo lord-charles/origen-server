@@ -157,25 +157,117 @@ export class NotificationService {
       maximumFractionDigits: 2,
     });
 
-    // Prepare notification messages
-    const senderMessage = `Your ${transactionType} transaction of KES ${formattedAmount} to ${recipientName} has been processed successfully. New wallet balance: KES ${formattedSenderBalance}. Thank you for using our service.`;
-    const recipientMessage = `You have received KES ${formattedAmount} from ${senderName} via Innova ${transactionType}. New wallet balance: KES ${formattedRecipientBalance}. Thank you for using our service.`;
+    const getCurrentTime = () => {
+      return new Date().toLocaleString('en-KE', {
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: true,
+        timeZone: 'Africa/Nairobi',
+      });
+    };
+
+    const getCurrentDate = () => {
+      return new Date().toLocaleDateString('en-KE', {
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+        timeZone: 'Africa/Nairobi',
+      });
+    };
+
+    // Create HTML message for sender
+    const senderHtmlMessage = `
+      <div style="padding: 20px 0;">
+        <div style="background-color: #f8fafc; border-left: 4px solid #0891b2; padding: 16px; margin-bottom: 24px;">
+          <h2 style="margin: 0 0 16px 0; color: #0891b2;">Transaction Details</h2>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">Transaction Type</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">${transactionType}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">Amount</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">KES ${formattedAmount}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">Recipient</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">${recipientName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">New Balance</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">KES ${formattedSenderBalance}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">Date</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">${getCurrentDate()}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">Time</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">${getCurrentTime()}</td>
+            </tr>
+          </table>
+        </div>
+        <p style="color: #64748b; font-size: 14px;">For any queries, please contact our support team.</p>
+      </div>
+    `;
+
+    // Create HTML message for recipient
+    const recipientHtmlMessage = `
+      <div style="padding: 20px 0;">
+        <div style="background-color: #f8fafc; border-left: 4px solid #0891b2; padding: 16px; margin-bottom: 24px;">
+          <h2 style="margin: 0 0 16px 0; color: #0891b2;">Transaction Details</h2>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">Transaction Type</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">${transactionType}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">Amount Received</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">KES ${formattedAmount}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">From</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">${senderName}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">New Balance</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">KES ${formattedRecipientBalance}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">Date</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">${getCurrentDate()}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">Time</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">${getCurrentTime()}</td>
+            </tr>
+          </table>
+        </div>
+        <p style="color: #64748b; font-size: 14px;">For any queries, please contact our support team.</p>
+      </div>
+    `;
 
     // Send SMS notifications
     if (senderPhone) {
-      await this.sendSMS(senderPhone, senderMessage);
+      await this.sendSMS(
+        senderPhone,
+        `Your ${transactionType} transaction of KES ${formattedAmount} to ${recipientName} has been processed successfully. New wallet balance: KES ${formattedSenderBalance}`,
+      );
     }
 
     if (recipientPhone) {
-      await this.sendSMS(recipientPhone, recipientMessage);
+      await this.sendSMS(
+        recipientPhone,
+        `You have received KES ${formattedAmount} from ${senderName} via Innova ${transactionType}. New wallet balance: KES ${formattedRecipientBalance}`,
+      );
     }
 
-    // Send email notifications if email addresses are provided
+    // Send email notifications with HTML template
     if (senderEmail) {
       await this.sendEmail(
         senderEmail,
         `${transactionType} Transaction Confirmation`,
-        senderMessage,
+        senderHtmlMessage,
       );
     }
 
@@ -183,7 +275,7 @@ export class NotificationService {
       await this.sendEmail(
         recipientEmail,
         `${transactionType} Transaction Notification`,
-        recipientMessage,
+        recipientHtmlMessage,
       );
     }
   }
