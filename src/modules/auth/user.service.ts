@@ -68,7 +68,11 @@ export class UserService {
 
     // Send PIN via SMS
     const message = `Your Innova App login PIN is: ${generatedPin}. Please keep this PIN secure and do not share it with anyone.`;
-    await this.notificationService.sendSMS(savedUser.phoneNumber, message);
+    await this.notificationService.sendRegistrationPin(
+      savedUser.phoneNumber,
+      createUserDto.email,
+      message,
+    );
 
     return savedUser;
   }
