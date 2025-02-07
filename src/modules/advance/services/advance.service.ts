@@ -188,14 +188,74 @@ export class AdvanceService {
       );
     }
 
-    // Send SMS notification
+    // Format amount for notification
     const formattedAmount = createAdvanceDto.amount.toLocaleString('en-KE', {
       minimumFractionDigits: 2,
       maximumFractionDigits: 2,
     });
 
     const message = `Your advance request of KES ${formattedAmount} has been submitted successfully. You will be notified once it is approved. Thank you for using our service.`;
+    
+    // Send SMS notification
     await this.notificationService.sendSMS(employee.phoneNumber, message);
+
+    // Create HTML email template
+    const htmlMessage = `
+      <div style="padding: 20px 0;">
+        <div style="background-color: #f8fafc; border-left: 4px solid #0891b2; padding: 16px; margin-bottom: 24px;">
+          <h2 style="margin: 0 0 16px 0; color: #0891b2;">Salary Advance Request Submitted</h2>
+          <table style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">Request Amount</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">KES ${formattedAmount}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">Purpose</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">${createAdvanceDto.purpose}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">Repayment Period</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">${createAdvanceDto.repaymentPeriod} months</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">Interest Rate</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">${config.advanceDefaultInterestRate}%</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">Monthly Installment</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">KES ${createAdvanceDto.amount / createAdvanceDto.repaymentPeriod}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">Total Repayment</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">KES ${createAdvanceDto.amount}</td>
+            </tr>
+            <tr>
+              <td style="padding: 8px 0; color: #64748b;">Payment Method</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">${createAdvanceDto.preferredPaymentMethod.toUpperCase()}</td>
+            </tr>
+          </table>
+        </div>
+        <div style="margin-top: 24px; padding: 16px; background-color: #f0f9ff; border-radius: 4px;">
+          <h3 style="margin: 0 0 8px 0; color: #0369a1;">Next Steps</h3>
+          <p style="margin: 0; color: #075985; font-size: 14px;">
+            Your advance request is now pending approval. You will receive another notification once your request has been reviewed.
+            The approval process typically takes 1-2 business days.
+          </p>
+        </div>
+        <p style="color: #64748b; font-size: 14px; margin-top: 24px;">
+          For any queries about your advance request, please contact our support team.
+        </p>
+      </div>
+    `;
+
+    // Send email notification
+    if (employee.email) {
+      await this.notificationService.sendEmail(
+        employee.email,
+        'Salary Advance Request Confirmation',
+        htmlMessage,
+      );
+    }
 
     return savedAdvance;
   }
