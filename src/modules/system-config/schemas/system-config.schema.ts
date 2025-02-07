@@ -1,5 +1,5 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
-import { Document } from 'mongoose';
+import { Document, Types } from 'mongoose';
 import { ApiProperty } from '@nestjs/swagger';
 
 export type SystemConfigDocument = SystemConfig & Document;
@@ -16,11 +16,11 @@ export class SystemConfig {
   @ApiProperty({
     description: 'Configuration type',
     example: 'loan',
-    enum: ['loan', 'wallet', 'mpesa', 'advance'],
+    enum: ['loan', 'wallet', 'mpesa', 'advance', 'notification'],
   })
   @Prop({
     required: true,
-    enum: ['loan', 'wallet', 'mpesa', 'advance'],
+    enum: ['loan', 'wallet', 'mpesa', 'advance', 'notification'],
   })
   type: string;
 
@@ -73,28 +73,55 @@ export class SystemConfig {
     callbackBaseUrl?: string;
     initiatorName?: string;
     securityCredential?: string;
+
+    // Notification Configurations
+    notificationAdmins?: Array<{
+      name: string;
+      email: string;
+      phone: string;
+      notificationTypes: Array<'balance_alert' | 'monthly_report'>;
+      notes?: string;
+    }>;
+    balanceThreshold?: number;
+    reportFormat?: 'excel' | 'pdf' | 'csv';
+    reportGenerationDay?: number; // Day of month for monthly reports
+    enableEmailNotifications?: boolean;
+    enableSMSNotifications?: boolean;
   };
 
   @ApiProperty({
     description: 'Suspension periods for advances',
-    example: [{
-      startDate: '2025-02-10T00:00:00.000Z',
-      endDate: '2025-02-15T23:59:59.999Z',
-      reason: 'System maintenance',
-      isActive: true
-    }]
+    example: [
+      {
+        startDate: '2025-02-10T00:00:00.000Z',
+        endDate: '2025-02-15T23:59:59.999Z',
+        reason: 'System maintenance',
+        isActive: true,
+        createdBy: '64abc123def4567890ghijk1',
+        updatedBy: '64abc123def4567890ghijk1',
+      },
+    ],
   })
-  @Prop({ type: [{
-    startDate: { type: String, required: true },
-    endDate: { type: String, required: true },
-    reason: { type: String, required: true },
-    isActive: { type: Boolean, default: true }
-  }], default: [] })
+  @Prop({
+    type: [
+      {
+        startDate: { type: String, required: true },
+        endDate: { type: String, required: true },
+        reason: { type: String, required: true },
+        isActive: { type: Boolean, default: true },
+        createdBy: { type: Types.ObjectId, ref: 'User', required: true },
+        updatedBy: { type: Types.ObjectId, ref: 'User', required: true },
+      },
+    ],
+    default: [],
+  })
   suspensionPeriods?: {
     startDate: string;
     endDate: string;
     reason: string;
     isActive: boolean;
+    createdBy?: Types.ObjectId;
+    updatedBy?: Types.ObjectId;
   }[];
 
   @ApiProperty({
@@ -115,8 +142,15 @@ export class SystemConfig {
     description: 'Last updated by user ID',
     example: '64abc123def4567890ghijk1',
   })
-  @Prop({ type: String })
-  updatedBy?: string;
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  updatedBy?: Types.ObjectId;
+
+  @ApiProperty({
+    description: 'Created by user ID',
+    example: '64abc123def4567890ghijk1',
+  })
+  @Prop({ type: Types.ObjectId, ref: 'User' })
+  createdBy?: Types.ObjectId;
 }
 
 export const SystemConfigSchema = SchemaFactory.createForClass(SystemConfig);

@@ -1,5 +1,12 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsNotEmpty, IsString, IsDateString, IsBoolean } from 'class-validator';
+import {
+  IsNotEmpty,
+  IsString,
+  IsDateString,
+  IsBoolean,
+  IsOptional,
+} from 'class-validator';
+import { Types } from 'mongoose';
 
 export class AddSuspensionPeriodDto {
   @ApiProperty({
@@ -20,19 +27,31 @@ export class AddSuspensionPeriodDto {
 
   @ApiProperty({
     description: 'Reason for the suspension period',
-    example: 'System maintenance and upgrades',
+    example: 'System maintenance',
   })
   @IsNotEmpty()
   @IsString()
   reason: string;
 
   @ApiProperty({
-    description: 'Whether this suspension period is active',
+    description: 'Whether the suspension period is active',
     example: true,
-    default: true,
   })
+  @IsOptional()
   @IsBoolean()
-  isActive: boolean = true;
+  isActive?: boolean;
+
+  @ApiProperty({
+    description: 'User ID who created the suspension period',
+  })
+  @IsOptional()
+  createdBy?: Types.ObjectId;
+
+  @ApiProperty({
+    description: 'User ID who last updated the suspension period',
+  })
+  @IsOptional()
+  updatedBy?: Types.ObjectId;
 }
 
 export class UpdateSuspensionPeriodDto extends AddSuspensionPeriodDto {

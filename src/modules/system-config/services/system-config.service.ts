@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { SystemConfig } from '../schemas/system-config.schema';
 import {
   CreateSystemConfigDto,
@@ -10,6 +10,7 @@ import {
   AddSuspensionPeriodDto,
   UpdateSuspensionPeriodDto,
 } from '../dto/suspension-period.dto';
+import { SuspensionPeriod } from '../interfaces/suspension-period.interface';
 
 @Injectable()
 export class SystemConfigService {
@@ -21,17 +22,32 @@ export class SystemConfigService {
   async create(createDto: CreateSystemConfigDto, userId: string) {
     const config = await this.systemConfigModel.create({
       ...createDto,
-      updatedBy: userId,
+      createdBy: new Types.ObjectId(userId),
+      updatedBy: new Types.ObjectId(userId),
     });
     return config;
   }
 
   async findAll() {
-    return this.systemConfigModel.find().exec();
+    return this.systemConfigModel
+      .find()
+      .populate([
+        { path: 'createdBy', select: 'firstName lastName' },
+        { path: 'updatedBy', select: 'firstName lastName' },
+      ])
+      .exec();
   }
 
   async findByKey(key: string) {
-    const config = await this.systemConfigModel.findOne({ key }).exec();
+    const config = await this.systemConfigModel
+      .findOne({ key })
+      .populate([
+        { path: 'createdBy', select: 'firstName lastName' },
+        { path: 'updatedBy', select: 'firstName lastName' },
+        { path: 'suspensionPeriods.createdBy', select: 'firstName lastName' },
+        { path: 'suspensionPeriods.updatedBy', select: 'firstName lastName' },
+      ])
+      .exec();
     if (!config) {
       throw new NotFoundException(`Configuration with key ${key} not found`);
     }
@@ -39,16 +55,28 @@ export class SystemConfigService {
   }
 
   async findByType(type: string) {
-    return this.systemConfigModel.find({ type }).exec();
+    return this.systemConfigModel
+      .find({ type })
+      .populate([
+        { path: 'createdBy', select: 'firstName lastName' },
+        { path: 'updatedBy', select: 'firstName lastName' },
+      ])
+      .exec();
   }
 
   async update(key: string, updateDto: UpdateSystemConfigDto, userId: string) {
     const config = await this.systemConfigModel
       .findOneAndUpdate(
         { key },
-        { ...updateDto, updatedBy: userId },
+        { ...updateDto, updatedBy: new Types.ObjectId(userId) },
         { new: true },
       )
+      .populate([
+        { path: 'createdBy', select: 'firstName lastName' },
+        { path: 'updatedBy', select: 'firstName lastName' },
+        { path: 'suspensionPeriods.createdBy', select: 'firstName lastName' },
+        { path: 'suspensionPeriods.updatedBy', select: 'firstName lastName' },
+      ])
       .exec();
 
     if (!config) {
@@ -88,14 +116,16 @@ export class SystemConfigService {
     }
 
     // Update the suspension period
+
     config.suspensionPeriods[updateDto.index] = {
       startDate: updateDto.startDate,
       endDate: updateDto.endDate,
       reason: updateDto.reason,
       isActive: updateDto.isActive,
+      updatedBy: new Types.ObjectId(userId),
     };
+    config.updatedBy = new Types.ObjectId(userId);
 
-    config.updatedBy = userId;
     return await config.save();
   }
 
@@ -110,15 +140,20 @@ export class SystemConfigService {
       throw new NotFoundException(`Configuration with key ${key} not found`);
     }
 
-    if (!config.suspensionPeriods || index >= config.suspensionPeriods.length) {
-      throw new NotFoundException('Invalid suspension period index');
+    if (
+      !config.suspensionPeriods ||
+      index >= config.suspensionPeriods.length ||
+      index < 0
+    ) {
+      throw new NotFoundException(
+        `Suspension period at index ${index} not found`,
+      );
     }
 
-    // Update only the isActive status
     config.suspensionPeriods[index].isActive = isActive;
-    config.updatedBy = userId;
+    config.updatedBy = new Types.ObjectId(userId);
 
-    return await config.save();
+    return config.save();
   }
 
   async addSuspensionPeriod(
@@ -135,16 +170,15 @@ export class SystemConfigService {
       config.suspensionPeriods = [];
     }
 
-    // Add new suspension period
     config.suspensionPeriods.push({
-      startDate: addDto.startDate,
-      endDate: addDto.endDate,
-      reason: addDto.reason,
-      isActive: addDto.isActive,
+      ...addDto,
+      isActive: true,
+      createdBy: new Types.ObjectId(userId),
+      updatedBy: new Types.ObjectId(userId),
     });
+    config.updatedBy = new Types.ObjectId(userId);
 
-    config.updatedBy = userId;
-    return await config.save();
+    return config.save();
   }
 
   // Helper methods for specific configurations
