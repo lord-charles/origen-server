@@ -54,11 +54,11 @@ export class AddSuspensionPeriodDto {
   updatedBy?: Types.ObjectId;
 }
 
-export class UpdateSuspensionPeriodDto extends AddSuspensionPeriodDto {
-  @ApiProperty({
-    description: 'Index of the suspension period to update',
-    example: 0,
-  })
-  @IsNotEmpty()
-  index: number;
-}
+// export class UpdateSuspensionPeriodDto extends AddSuspensionPeriodDto {
+//   @ApiProperty({
+//     description: 'Index of the suspension period to update',
+//     example: 0,
+//   })
+//   @IsNotEmpty()
+//   index: number;
+// }

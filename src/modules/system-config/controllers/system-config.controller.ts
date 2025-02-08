@@ -27,11 +27,11 @@ import {
 } from '../dto/system-config.dto';
 import {
   AddSuspensionPeriodDto,
-  UpdateSuspensionPeriodDto,
 } from '../dto/suspension-period.dto';
 import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { Request } from 'express';
+import { UpdateSuspensionPeriodDto } from '../dto/update-suspension-period.dto';
 
 @ApiTags('System Configuration')
 @ApiBearerAuth()
@@ -184,7 +184,7 @@ export class SystemConfigController {
     return this.systemConfigService.addSuspensionPeriod(key, addDto, userId);
   }
 
-  @Put(':key/suspension-periods/:index')
+  @Patch(':key/suspension-periods/:id')
   @Roles('admin', 'hr')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update an existing suspension period' })
@@ -193,8 +193,8 @@ export class SystemConfigController {
     description: 'Configuration key (e.g., advance_config)',
   })
   @ApiParam({
-    name: 'index',
-    description: 'Index of the suspension period to update',
+    name: 'id',
+    description: 'ID of the suspension period to update',
   })
   @ApiResponse({
     status: 200,
@@ -202,12 +202,12 @@ export class SystemConfigController {
   })
   updateSuspensionPeriod(
     @Param('key') key: string,
-    @Param('index') index: string,
+    @Param('id') id: string,
     @Body() updateDto: UpdateSuspensionPeriodDto,
     @Req() req: Request,
   ) {
     const userId = (req.user as any)._id;
-    updateDto.index = parseInt(index, 10);
+    updateDto.id = id;
     return this.systemConfigService.updateSuspensionPeriod(key, updateDto, userId);
   }
 

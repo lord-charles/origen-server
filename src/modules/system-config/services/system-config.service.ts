@@ -8,9 +8,8 @@ import {
 } from '../dto/system-config.dto';
 import {
   AddSuspensionPeriodDto,
-  UpdateSuspensionPeriodDto,
 } from '../dto/suspension-period.dto';
-import { SuspensionPeriod } from '../interfaces/suspension-period.interface';
+import { UpdateSuspensionPeriodDto } from '../dto/update-suspension-period.dto';
 
 @Injectable()
 export class SystemConfigService {
@@ -108,25 +107,33 @@ export class SystemConfigService {
       throw new NotFoundException(`Configuration with key ${key} not found`);
     }
 
-    if (
-      !config.suspensionPeriods ||
-      updateDto.index >= config.suspensionPeriods.length
-    ) {
-      throw new NotFoundException('Invalid suspension period index');
+    const periodIndex = config.suspensionPeriods?.findIndex(
+      (period) => period._id.toString() === updateDto.id
+    );
+
+    if (periodIndex === -1 || periodIndex === undefined) {
+      throw new NotFoundException(`Suspension period with id ${updateDto.id} not found`);
     }
 
-    // Update the suspension period
-
-    config.suspensionPeriods[updateDto.index] = {
-      startDate: updateDto.startDate,
-      endDate: updateDto.endDate,
-      reason: updateDto.reason,
-      isActive: updateDto.isActive,
+    // Update only the provided fields
+    const currentPeriod = config.suspensionPeriods[periodIndex];
+    config.suspensionPeriods[periodIndex] = {
+      ...currentPeriod,
+      startDate: updateDto.startDate || currentPeriod.startDate,
+      endDate: updateDto.endDate || currentPeriod.endDate,
+      reason: updateDto.reason || currentPeriod.reason,
+      isActive: updateDto.isActive ?? currentPeriod.isActive,
       updatedBy: new Types.ObjectId(userId),
+      createdBy: currentPeriod.createdBy,
     };
+    
     config.updatedBy = new Types.ObjectId(userId);
+    const updatedConfig = await config.save();
 
-    return await config.save();
+    return updatedConfig.populate([
+      { path: 'suspensionPeriods.createdBy', select: 'firstName lastName' },
+      { path: 'suspensionPeriods.updatedBy', select: 'firstName lastName' },
+    ]);
   }
 
   async toggleSuspensionPeriod(
@@ -175,6 +182,7 @@ export class SystemConfigService {
       isActive: true,
       createdBy: new Types.ObjectId(userId),
       updatedBy: new Types.ObjectId(userId),
+      _id: new Types.ObjectId(),
     });
     config.updatedBy = new Types.ObjectId(userId);
 
