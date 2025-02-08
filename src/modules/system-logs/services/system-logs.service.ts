@@ -32,7 +32,7 @@ export class SystemLogsService {
 
   async getLogs(
     page = 1,
-    limit = 10,
+    limit = 2000,
     severity?: LogSeverity,
     startDate?: Date,
     endDate?: Date,
