@@ -18,10 +18,10 @@ import { UpdateNotificationSettingsDto } from '../dto/notification-settings.dto'
 @Injectable()
 export class NotificationConfigService {
   private readonly logger = new Logger(NotificationConfigService.name);
+
   private readonly ADMIN_EMAILS = [
     'mwanikicharles226@gmail.com',
     'michaelgichure@gmail.com',
-
   ];
 
   constructor(

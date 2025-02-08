@@ -596,15 +596,24 @@ export class ReportsService {
   private async sendReportEmail(
     email: string,
     reportBuffer: Buffer,
-    format: string,
+    Format: string,
   ) {
     const subject = 'Monthly Advance Report';
     const message = this.generateEmailTemplate();
+    const now = new Date();
+    const timestamp = format(now, 'yyyy-MM-dd_HH-mm', { locale: enGB });
+
+    // Map format to correct file extension
+    const extensionMap = {
+      excel: 'xlsx',
+      pdf: 'pdf',
+      csv: 'csv'
+    };
 
     try {
       await this.notificationService.sendEmailWithAttachments(email, subject, message, [
         {
-          filename: `advance_report.${format}`,
+          filename: `advance_report_${timestamp}.${extensionMap[Format] || Format}`,
           content: reportBuffer,
         },
       ]);
