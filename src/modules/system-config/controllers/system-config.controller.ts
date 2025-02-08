@@ -211,6 +211,31 @@ export class SystemConfigController {
     return this.systemConfigService.updateSuspensionPeriod(key, updateDto, userId);
   }
 
+  @Delete(':key/suspension-periods/:id')
+  @Roles('admin', 'hr')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Remove a suspension period' })
+  @ApiParam({
+    name: 'key',
+    description: 'Configuration key (e.g., advance_config)',
+  })
+  @ApiParam({
+    name: 'id',
+    description: 'ID of the suspension period to remove',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Suspension period removed successfully',
+  })
+  removeSuspensionPeriod(
+    @Param('key') key: string,
+    @Param('id') id: string,
+    @Req() req: Request,
+  ) {
+    const userId = (req.user as any)._id;
+    return this.systemConfigService.removeSuspensionPeriod(key, id, userId);
+  }
+
   @Patch(':key/suspension-periods/:index/toggle')
   @Roles('admin', 'hr')
   @HttpCode(HttpStatus.OK)

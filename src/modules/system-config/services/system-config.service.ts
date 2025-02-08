@@ -189,6 +189,32 @@ export class SystemConfigService {
     return config.save();
   }
 
+  async removeSuspensionPeriod(
+    key: string,
+    id: string,
+    userId: string,
+  ) {
+    const config = await this.systemConfigModel.findOne({ key }).exec();
+    if (!config) {
+      throw new NotFoundException(`Configuration with key ${key} not found`);
+    }
+
+    const periodIndex = config.suspensionPeriods?.findIndex(
+      (period) => period._id.toString() === id
+    );
+
+    if (periodIndex === -1 || periodIndex === undefined) {
+      throw new NotFoundException(`Suspension period with id ${id} not found`);
+    }
+
+    // Remove the suspension period
+    config.suspensionPeriods.splice(periodIndex, 1);
+    config.updatedBy = new Types.ObjectId(userId);
+
+    await config.save();
+    return config;
+  }
+
   // Helper methods for specific configurations
   async getLoanConfig() {
     return this.findByKey('loan_config');
