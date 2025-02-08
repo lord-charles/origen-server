@@ -10,6 +10,7 @@ import {
   AddSuspensionPeriodDto,
 } from '../dto/suspension-period.dto';
 import { UpdateSuspensionPeriodDto } from '../dto/update-suspension-period.dto';
+import { UpdateAdvanceConfigDto } from '../dto/update-advance-config.dto';
 
 @Injectable()
 export class SystemConfigService {
@@ -211,6 +212,27 @@ export class SystemConfigService {
     config.suspensionPeriods.splice(periodIndex, 1);
     config.updatedBy = new Types.ObjectId(userId);
 
+    await config.save();
+    return config;
+  }
+
+  async updateAdvanceConfig(
+    key: string,
+    updateDto: UpdateAdvanceConfigDto,
+    userId: string,
+  ) {
+    const config = await this.systemConfigModel.findOne({ key }).exec();
+    if (!config) {
+      throw new NotFoundException(`Configuration with key ${key} not found`);
+    }
+
+    // Update only the provided fields in the data object
+    config.data = {
+      ...config.data,
+      ...updateDto,
+    };
+
+    config.updatedBy = new Types.ObjectId(userId);
     await config.save();
     return config;
   }

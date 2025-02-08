@@ -12,6 +12,7 @@ import {
   HttpStatus,
   Delete,
   Put,
+  BadRequestException,
 } from '@nestjs/common';
 import {
   ApiTags,
@@ -32,6 +33,7 @@ import { JwtAuthGuard } from '../../auth/guards/jwt-auth.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { Request } from 'express';
 import { UpdateSuspensionPeriodDto } from '../dto/update-suspension-period.dto';
+import { UpdateAdvanceConfigDto } from '../dto/update-advance-config.dto';
 
 @ApiTags('System Configuration')
 @ApiBearerAuth()
@@ -265,5 +267,29 @@ export class SystemConfigController {
       isActive,
       userId,
     );
+  }
+
+  @Patch(':key/advance-config')
+  @Roles('admin', 'hr')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Update advance configurations' })
+  @ApiParam({
+    name: 'key',
+    description: 'Configuration key (must be advance_config)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Advance configurations updated successfully',
+  })
+  updateAdvanceConfig(
+    @Param('key') key: string,
+    @Body() updateDto: UpdateAdvanceConfigDto,
+    @Req() req: Request,
+  ) {
+    if (key !== 'advance_config') {
+      throw new BadRequestException('Invalid configuration key. Must be advance_config');
+    }
+    const userId = (req.user as any)._id;
+    return this.systemConfigService.updateAdvanceConfig(key, updateDto, userId);
   }
 }
