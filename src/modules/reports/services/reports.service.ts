@@ -29,6 +29,7 @@ export class ReportsService {
     name: 'check-and-generate-monthly-report',
     timeZone: 'Africa/Nairobi'
   })
+  
   async checkAndGenerateMonthlyReport() {
     try {
       this.logger.debug('Running monthly report check...');
@@ -238,6 +239,10 @@ export class ReportsService {
 
     // Style header row
     const headerRow = worksheet.addRow([]);
+    worksheet.columns.forEach(col => {
+      const header = Array.isArray(col.header) ? col.header.join(', ') : col.header;
+      headerRow.getCell(col.number).value = header;
+    });
     headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' } };
     headerRow.fill = {
       type: 'pattern',
@@ -367,7 +372,7 @@ export class ReportsService {
     ];
   
     summaryData.forEach(([label, value]) => {
-      doc.fontSize(12).font('Helvetica').text(`${label}: ${value}`);
+      doc.fontSize(12).text(`${label}: ${value}`);
     });
     
     doc.moveDown(1.5);
