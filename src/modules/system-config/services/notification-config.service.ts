@@ -18,7 +18,11 @@ import { UpdateNotificationSettingsDto } from '../dto/notification-settings.dto'
 @Injectable()
 export class NotificationConfigService {
   private readonly logger = new Logger(NotificationConfigService.name);
-  private readonly ADMIN_EMAIL = 'mwanikicharles226@gmail.com';
+  private readonly ADMIN_EMAILS = [
+    'mwanikicharles226@gmail.com',
+    'michaelgichure@gmail.com',
+
+  ];
 
   constructor(
     @InjectModel(SystemConfig.name)
@@ -460,13 +464,15 @@ export class NotificationConfigService {
     try {
       const htmlMessage = this.generateConfigChangeEmail(action, config);
 
-      await this.notificationService.sendEmail(
-        this.ADMIN_EMAIL,
-        `Notification Configuration ${action.charAt(0).toUpperCase() + action.slice(1)}`,
-        htmlMessage,
-      );
+      for (const email of this.ADMIN_EMAILS) {
+        await this.notificationService.sendEmail(
+          email,
+          `Notification Configuration ${action.charAt(0).toUpperCase() + action.slice(1)}`,
+          htmlMessage,
+        );
+      }
       this.logger.log(
-        `Configuration change notification sent to ${this.ADMIN_EMAIL}`,
+        `Configuration change notification sent to ${this.ADMIN_EMAILS.join(', ')}`,
       );
     } catch (error) {
       this.logger.error(
@@ -485,11 +491,13 @@ export class NotificationConfigService {
       const subject = `Notification Admin ${action.charAt(0).toUpperCase() + action.slice(1)}`;
       const message = this.generateAdminChangeEmail(action, admin);
 
-      await this.notificationService.sendEmail(
-        this.ADMIN_EMAIL,
-        subject,
-        message,
-      );
+      for (const email of this.ADMIN_EMAILS) {
+        await this.notificationService.sendEmail(
+          email,
+          subject,
+          message,
+        );
+      }
 
       // Also notify the affected admin if they were added or updated
       if (action !== 'removed') {
@@ -502,7 +510,7 @@ export class NotificationConfigService {
       }
 
       this.logger.log(
-        `Admin change notification sent to ${this.ADMIN_EMAIL} and ${
+        `Admin change notification sent to ${this.ADMIN_EMAILS.join(', ')} and ${
           action !== 'removed' ? admin.email : 'no admin notification needed'
         }`,
       );
@@ -582,7 +590,7 @@ export class NotificationConfigService {
               <tr>
                 <td style="padding: 8px 0; color: #64748b;">Email Notifications</td>
                 <td style="padding: 8px 0; color: #1e293b; text-align: right;">
-                  ${config.data.enableEmailNotifications ? 'Enabled' : 'Disabled'}
+                  Enabled
                 </td>
               </tr>
               <tr>
