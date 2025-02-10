@@ -407,6 +407,8 @@ export class MpesaService {
       ) as string;
       const phoneNumber = receiverPartyPublicName.split(' ')[0];
 
+      console.log('b2c phone', phoneNumber)
+
       // Find existing transaction by originatorConversationId
       const existingTransaction = await this.mpesaModel.findOne({
         $or: [
