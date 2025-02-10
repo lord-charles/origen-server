@@ -17,6 +17,7 @@ import {
   Advance,
   AdvanceDocument,
 } from 'src/modules/advance/schemas/advance.schema';
+import { SystemConfig, SystemConfigDocument } from 'src/modules/system-config/schemas/system-config.schema';
 
 @Injectable()
 export class MpesaService {
@@ -40,6 +41,8 @@ export class MpesaService {
     private employeeModel: Model<UserDocument>,
     @InjectModel(Advance.name)
     private advanceModel: Model<AdvanceDocument>,
+    @InjectModel(SystemConfig.name)
+    private systemConfigModel: Model<SystemConfigDocument>,
     private walletTransactionService: WalletTransactionService,
     private notificationService: NotificationService,
     private configService: ConfigService,
@@ -463,7 +466,31 @@ export class MpesaService {
         { new: true },
       );
 
-      console.log('updated transaction', updatedTransaction);
+      // Check balance threshold and notify admins if necessary
+      const b2cUtilityAccountFunds = Number(resultParamsMap.get('B2CUtilityAccountAvailableFunds'));
+      const systemConfig = await this.systemConfigModel.findOne();
+
+      if (systemConfig?.data?.balanceThreshold && b2cUtilityAccountFunds <= systemConfig.data.balanceThreshold) {
+        const balanceAlertAdmins = systemConfig.data.notificationAdmins?.filter(admin =>
+          admin.notificationTypes.includes('balance_alert')
+        ) || [];
+
+        const alertMessage = `⚠️ LOW BALANCE ALERT: M-Pesa utility account balance (KES ${b2cUtilityAccountFunds}) has fallen below the threshold of KES ${systemConfig.data.balanceThreshold}. Please top up to ensure uninterrupted service.`;
+
+        // Send notifications to all balance alert admins
+        for (const admin of balanceAlertAdmins) {
+          if (systemConfig.data.enableSMSNotifications && admin.phone) {
+            await this.notificationService.sendSMS(admin.phone, alertMessage);
+          }
+          if (systemConfig.data.enableEmailNotifications && admin.email) {
+            await this.notificationService.sendEmail(
+              admin.email,
+              'M-Pesa Account Low Balance Alert',
+              alertMessage
+            );
+          }
+        }
+      }
 
       return {
         success: true,

@@ -11,6 +11,7 @@ import { MpesaService } from './services/mpesa.service';
 import { WalletModule } from 'src/modules/wallet/wallet.module';
 import { NotificationsModule } from 'src/modules/notifications/notifications.module';
 import { Advance, AdvanceSchema } from 'src/modules/advance/schemas/advance.schema';
+import { SystemConfig, SystemConfigSchema } from 'src/modules/system-config/schemas/system-config.schema';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { Advance, AdvanceSchema } from 'src/modules/advance/schemas/advance.sche
       { name: MpesaTransaction.name, schema: MpesaTransactionSchema },
       { name: User.name, schema: UserSchema },
       { name: Advance.name, schema: AdvanceSchema },
+      { name: SystemConfig.name, schema: SystemConfigSchema },
     ]),
     AuthModule,
     forwardRef(() => WalletModule),
