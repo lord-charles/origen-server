@@ -33,7 +33,7 @@ import { HttpException } from '@nestjs/common';
 export class MpesaController {
   private readonly logger = new Logger(MpesaController.name);
 
-  constructor(private readonly mpesaService: MpesaService) {}
+  constructor(private readonly mpesaService: MpesaService) { }
 
   @Post('initiate-c2b')
   @ApiExcludeEndpoint()
