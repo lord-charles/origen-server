@@ -419,6 +419,8 @@ export class MpesaService {
         status: 'pending',
       });
 
+      console.log('existing transaction', existingTransaction)
+
       if (!existingTransaction) {
         throw new Error(
           `No pending B2C transaction found for conversation ID: ${OriginatorConversationID} or phone: ${phoneNumber}`,
@@ -460,6 +462,8 @@ export class MpesaService {
         updateData,
         { new: true },
       );
+
+      console.log('updated transaction', updatedTransaction);
 
       return {
         success: true,
