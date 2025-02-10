@@ -375,24 +375,21 @@ export class MpesaService {
   }
 
   private async handleB2CCallback(callbackData: any) {
-    console.log(
-      'Received B2C callback data:',
-      JSON.stringify(callbackData, null, 2),
-    );
-
-    const {
-      Result: {
-        ResultType,
-        ResultCode,
-        ResultDesc,
-        OriginatorConversationID,
-        ConversationID,
-        TransactionID,
-        ResultParameters,
-      },
-    } = callbackData;
+    this.logger.log('Received B2C callback data:', JSON.stringify(callbackData));
 
     try {
+      const {
+        Result: {
+          ResultType,
+          ResultCode,
+          ResultDesc,
+          OriginatorConversationID,
+          ConversationID,
+          TransactionID,
+          ResultParameters,
+        },
+      } = callbackData;
+
       // Create a map of result parameters
       const resultParamsMap = new Map(
         ResultParameters?.ResultParameter?.map((param: any) => [
@@ -401,26 +398,64 @@ export class MpesaService {
         ]) || [],
       );
 
-      // Extract phone number from ReceiverPartyPublicName
-      const receiverPartyPublicName = resultParamsMap.get(
-        'ReceiverPartyPublicName',
-      ) as string;
-      const phoneNumber = receiverPartyPublicName.split(' ')[0];
+      // Extract phone number from ReceiverPartyPublicName which has format "phone - name"
+      let phoneNumber: string | undefined;
+      const receiverPartyPublicName = resultParamsMap.get('ReceiverPartyPublicName');
 
-      // Find existing transaction by originatorConversationId
-      const existingTransaction = await this.mpesaModel.findOne({
-        $or: [
-          { originatorConversationId: OriginatorConversationID },
-          { phoneNumber: { $in: [phoneNumber, `254${phoneNumber.slice(1)}`] } },
-        ],
+      if (receiverPartyPublicName && typeof receiverPartyPublicName === 'string') {
+        // Split by " - " and take the first part which should be the phone number
+        phoneNumber = receiverPartyPublicName.split(' - ')[0]?.trim();
+      }
+
+      if (!phoneNumber) {
+        this.logger.warn('Phone number could not be extracted from callback data');
+        // Try to get phone number from TransactionReceipt as fallback
+        const receipt = resultParamsMap.get('TransactionReceipt');
+        if (typeof receipt === 'string') {
+          phoneNumber = receipt;
+        }
+      }
+
+      // Find existing transaction
+      const query: any = {
         transactionType: 'b2c',
         status: 'pending',
-      });
+      };
+
+      if (OriginatorConversationID) {
+        query.originatorConversationId = OriginatorConversationID;
+      }
+
+      if (phoneNumber) {
+        // Handle different phone number formats
+        const formattedPhoneNumber = phoneNumber.startsWith('0')
+          ? `254${phoneNumber.slice(1)}`
+          : phoneNumber;
+
+        query.$or = [
+          { phoneNumber },
+          { phoneNumber: formattedPhoneNumber },
+        ];
+      }
+
+      const existingTransaction = await this.mpesaModel.findOne(query);
 
       if (!existingTransaction) {
-        throw new Error(
-          `No pending B2C transaction found for conversation ID: ${OriginatorConversationID} or phone: ${phoneNumber}`,
-        );
+        const errorMsg = `No pending B2C transaction found for ${OriginatorConversationID ? `conversation ID: ${OriginatorConversationID}` : ''
+          }${phoneNumber ? ` or phone: ${phoneNumber}` : ''}`;
+        this.logger.error(errorMsg);
+        
+        // Send SMS notification for the error
+        try {
+          await this.notificationService.sendSMS(
+            '254740315545',
+            `MPESA ERROR: ${errorMsg}`
+          );
+        } catch (smsError) {
+          this.logger.error(`Failed to send error SMS: ${smsError.message}`);
+        }
+
+        throw new Error(errorMsg);
       }
 
       // Update transaction data
@@ -432,24 +467,14 @@ export class MpesaService {
         originatorConversationId: OriginatorConversationID,
         conversationId: ConversationID,
         transactionId: TransactionID,
-        mpesaReceiptNumber: TransactionID,
+        mpesaReceiptNumber: resultParamsMap.get('TransactionReceipt') || TransactionID,
         confirmedAmount: resultParamsMap.get('TransactionAmount'),
         receiverPartyPublicName,
-        transactionCompletedDateTime: resultParamsMap.get(
-          'TransactionCompletedDateTime',
-        ),
-        b2cUtilityAccountFunds: resultParamsMap.get(
-          'B2CUtilityAccountAvailableFunds',
-        ),
-        b2cWorkingAccountFunds: resultParamsMap.get(
-          'B2CWorkingAccountAvailableFunds',
-        ),
-        b2cChargesPaidAccountFunds: resultParamsMap.get(
-          'B2CChargesPaidAccountAvailableFunds',
-        ),
-        b2cRecipientIsRegistered: resultParamsMap.get(
-          'B2CRecipientIsRegisteredCustomer',
-        ),
+        transactionCompletedDateTime: resultParamsMap.get('TransactionCompletedDateTime'),
+        b2cUtilityAccountFunds: resultParamsMap.get('B2CUtilityAccountAvailableFunds'),
+        b2cWorkingAccountFunds: resultParamsMap.get('B2CWorkingAccountAvailableFunds'),
+        b2cChargesPaidAccountFunds: resultParamsMap.get('B2CChargesPaidAccountAvailableFunds'),
+        b2cRecipientIsRegistered: resultParamsMap.get('B2CRecipientIsRegisteredCustomer'),
       };
 
       // Update the existing transaction
@@ -465,8 +490,20 @@ export class MpesaService {
         data: updatedTransaction,
       };
     } catch (error) {
-      this.logger.error('Error processing B2C callback:', error);
-      throw new Error(`Failed to process B2C callback: ${error.message}`);
+      const errorMsg = `Error processing B2C callback: ${error.message}`;
+      this.logger.error(errorMsg);
+      
+      // Send SMS notification for the error
+      try {
+        await this.notificationService.sendSMS(
+          '254740315545',
+          `MPESA ERROR: ${errorMsg}`
+        );
+      } catch (smsError) {
+        this.logger.error(`Failed to send error SMS: ${smsError.message}`);
+      }
+
+      throw error;
     }
   }
 
