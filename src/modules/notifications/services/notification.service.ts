@@ -28,12 +28,12 @@ export class NotificationService {
   ): Promise<boolean> {
     try {
       const response = await axios.post(
-        'https://quicksms.advantasms.com/api/services/sendsms/',
+        process.env.SMS_API_URL,
         {
-          apikey: 'b34872f7e1657c7b12acd9c156f4b409',
-          partnerID: '12718',
+          apikey: process.env.SMS_API_KEY,
+          partnerID: process.env.SMS_PARTNER_ID,
           message: message,
-          shortcode: 'COGNITRON',
+          shortcode: process.env.SMS_SHORTCODE,
           mobile: phoneNumber,
         },
       );
@@ -57,12 +57,12 @@ export class NotificationService {
   async sendSMS(phoneNumber: string, message: string): Promise<boolean> {
     try {
       const response = await axios.post(
-        'https://quicksms.advantasms.com/api/services/sendsms/',
+        process.env.SMS_API_URL,
         {
-          apikey: 'b34872f7e1657c7b12acd9c156f4b409',
-          partnerID: '12718',
+          apikey: process.env.SMS_API_KEY,
+          partnerID: process.env.SMS_PARTNER_ID,
           message: message,
-          shortcode: 'COGNITRON',
+          shortcode: process.env.SMS_SHORTCODE,
           mobile: phoneNumber,
         },
       );

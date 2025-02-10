@@ -522,6 +522,141 @@ export class AdvanceService {
     }, {});
   }
 
+
+  // async calculateAvailableAdvance(
+  //   employeeId: string,
+  // ): Promise<AdvanceCalculationResponseDto> {
+  //   // Get employee's base salary from user profile
+  //   const employee = await this.userModel
+  //     .findById(employeeId)
+  //     .select('baseSalary');
+  //   if (!employee) {
+  //     throw new NotFoundException('Employee not found');
+  //   }
+
+  //   const basicSalary = employee.baseSalary;
+  //   if (!basicSalary) {
+  //     throw new BadRequestException('Employee base salary not set');
+  //   }
+
+  //   const config = await this.getAdvanceConfig();
+  //   const maxAdvanceAmount = (basicSalary * config.maxAdvancePercentage) / 100;
+
+  //   // Get current date and calculate working days
+  //   const today = new Date();
+  //   const currentMonth = today.getMonth() + 1;
+  //   const currentYear = today.getFullYear();
+
+  //   let workingDaysCount = 0;
+  //   let lastNonWeekendAmount = 0;
+  //   let availableAdvance = 0;
+
+  //   // Calculate up to today's date
+  //   for (let day = 1; day <= today.getDate(); day++) {
+  //     const currentDate = new Date(currentYear, currentMonth - 1, day);
+  //     const isWeekend =
+  //       currentDate.getDay() === 0 || currentDate.getDay() === 6;
+  //     const isHoliday = await this.isHoliday(currentDate);
+
+  //     if (!isWeekend && !isHoliday) {
+  //       workingDaysCount++;
+  //       // Calculate total accrual up to this working day
+  //       const runningTotal = (maxAdvanceAmount / 22) * workingDaysCount;
+
+  //       // Cap at maxAdvanceAmount and round to nearest 100
+  //       const cappedAmount = Math.min(runningTotal, maxAdvanceAmount);
+  //       availableAdvance = Math.floor(cappedAmount / 100) * 100;
+  //       lastNonWeekendAmount = availableAdvance;
+  //     } else {
+  //       availableAdvance = lastNonWeekendAmount;
+  //     }
+  //   }
+
+  //   // Get advance history metrics
+  //   const advances = await this.advanceModel.find({
+  //     employee: employeeId,
+  //   });
+
+  //   // Calculate metrics based on advance statuses
+  //   const metrics = advances.reduce(
+  //     (acc, advance) => {
+  //       // Count all disbursed advances as previous advances
+  //       if (
+  //         advance.status === 'disbursed' ||
+  //         advance.status === 'repaying' ||
+  //         advance.status === 'repaid'
+  //       ) {
+  //         acc.totalDisbursed += advance.amount;
+  //       }
+
+  //       // Add to repayment balance if advance is disbursed or being repaid
+  //       if (advance.status === 'disbursed' || advance.status === 'repaying') {
+  //         const amountRepaid = advance.amountRepaid || 0;
+  //         // const interestRate = advance.interestRate || 0;
+  //         // const interest = (advance.amount * interestRate) / 100;
+  //         // const totalDue = advance.amount + interest;
+  //         const totalDue = advance.amount;
+  //         acc.repaymentBalance += Math.ceil(totalDue - amountRepaid);
+  //       }
+
+  //       // Calculate total repaid amount
+  //       if (advance.amountRepaid) {
+  //         acc.totalRepaid += advance.amountRepaid;
+  //       }
+
+  //       return acc;
+  //     },
+  //     { totalDisbursed: 0, repaymentBalance: 0, totalRepaid: 0 },
+  //   );
+
+  //   // Calculate next payday (25th of current or next month)
+  //   const nextPayday = this.calculateNextPayday();
+
+  //   const approvedAdvances = await this.advanceModel.find({
+  //     employee: new Types.ObjectId(employeeId),
+  //     status: { $in: ['disbursed', 'repaying'] },
+  //   });
+
+  //   // Calculate total approved amount and interest separately
+  //   const totals = approvedAdvances.reduce(
+  //     (acc, advance) => {
+  //       const interestRate = advance.interestRate || 0;
+  //       const interest = (advance.amount * interestRate) / 100;
+  //       return {
+  //         totalAmount: acc.totalAmount + advance.amount,
+  //         totalInterest: acc.totalInterest + interest,
+  //       };
+  //     },
+  //     { totalAmount: 0, totalInterest: 0 },
+  //   );
+
+  //   // Calculate total withdrawn amount
+  //   const totalWithdrawnAmount = approvedAdvances.reduce(
+  //     (sum, advance) => sum + (advance.amountWithdrawn || 0),
+  //     0,
+  //   );
+
+  //   // Available amount is approved amount minus interest minus what's already withdrawn
+  //   const availableAmount =
+  //     totals.totalAmount - totals.totalInterest - totalWithdrawnAmount;
+
+  //   // Return calculated advance details
+  //   return {
+  //     availableAdvance: Math.max(
+  //       0,
+  //       availableAdvance - metrics.repaymentBalance,
+  //     ),
+  //     maxAdvance: maxAdvanceAmount,
+  //     basicSalary,
+  //     advancePercentage: (availableAdvance / basicSalary) * 100,
+  //     previousAdvances: metrics.totalDisbursed,
+  //     totalAmountRepaid: metrics.totalRepaid,
+  //     repaymentBalance: Math.ceil(metrics.repaymentBalance - availableAmount),
+  //     nextPayday: nextPayday.toISOString().split('T')[0],
+  //   };
+  // }
+
+
   async calculateAvailableAdvance(
     employeeId: string,
   ): Promise<AdvanceCalculationResponseDto> {
@@ -545,13 +680,13 @@ export class AdvanceService {
     const today = new Date();
     const currentMonth = today.getMonth() + 1;
     const currentYear = today.getFullYear();
-    
+
     // Get total days in current month
     const lastDayOfMonth = new Date(currentYear, currentMonth, 0).getDate();
-    
+
     // Calculate daily increment
     const dailyIncrement = maxAdvanceAmount / lastDayOfMonth;
-    
+
     // Calculate available advance based on current day
     const runningTotal = dailyIncrement * today.getDate();
     const cappedAmount = Math.min(runningTotal, maxAdvanceAmount);
