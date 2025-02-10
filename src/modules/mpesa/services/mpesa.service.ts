@@ -410,7 +410,6 @@ export class MpesaService {
       ) as string;
       const phoneNumber = receiverPartyPublicName.split(' ')[0];
 
-      console.log('b2c phone', phoneNumber)
 
       // Find existing transaction by originatorConversationId
       const existingTransaction = await this.mpesaModel.findOne({
@@ -422,7 +421,6 @@ export class MpesaService {
         status: 'pending',
       });
 
-      console.log('existing transaction', existingTransaction)
 
       if (!existingTransaction) {
         throw new Error(
@@ -469,9 +467,9 @@ export class MpesaService {
       // Check balance threshold and notify admins if necessary
       const b2cUtilityAccountFunds = Number(resultParamsMap.get('B2CUtilityAccountAvailableFunds'));
       const systemConfig = await this.systemConfigModel.findOne({ key: 'notification_config', type: 'notification' });
-      console.log('system config', systemConfig)
-      console.log('b2cUtilityAccountFunds', b2cUtilityAccountFunds)
-      console.log('balanceThreshold', systemConfig?.data?.balanceThreshold)
+      // console.log('system config', systemConfig)
+      // console.log('b2cUtilityAccountFunds', b2cUtilityAccountFunds)
+      // console.log('balanceThreshold', systemConfig?.data?.balanceThreshold)
 
       if (systemConfig?.data?.balanceThreshold && b2cUtilityAccountFunds <= systemConfig.data.balanceThreshold) {
         const balanceAlertAdmins = systemConfig.data.notificationAdmins?.filter(admin =>

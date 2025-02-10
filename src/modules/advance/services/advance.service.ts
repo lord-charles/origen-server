@@ -156,8 +156,7 @@ export class AdvanceService {
       0,
       metrics.availableAdvance - metrics.repaymentBalance,
     );
-    console.log(availableAdvance);
-    console.log(metrics);
+
     if (createAdvanceDto.amount > availableAdvance) {
       throw new BadRequestException(
         `Requested amount exceeds available advance amount of ${availableAdvance}`,
@@ -198,7 +197,7 @@ export class AdvanceService {
     const message = `Your advance request of KES ${formattedAmount} has been submitted successfully. You will be notified once it is approved. Thank you for using our service.`;
 
     // Send SMS notification
-    // await this.notificationService.sendSMS(employee.phoneNumber, message);
+    await this.notificationService.sendSMS(employee.phoneNumber, message);
 
     // Format values for email template
     const monthlyInstallment = (createAdvanceDto.amount / createAdvanceDto.repaymentPeriod).toLocaleString('en-KE', {
@@ -261,13 +260,13 @@ export class AdvanceService {
     `;
 
     // Send email notification
-    // if (employee.email) {
-    //   await this.notificationService.sendEmail(
-    //     employee.email,
-    //     'Salary Advance Request Confirmation',
-    //     htmlMessage,
-    //   );
-    // }
+    if (employee.email) {
+      await this.notificationService.sendEmail(
+        employee.email,
+        'Salary Advance Request Confirmation',
+        htmlMessage,
+      );
+    }
 
     return savedAdvance;
   }
