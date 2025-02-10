@@ -469,6 +469,9 @@ export class MpesaService {
       // Check balance threshold and notify admins if necessary
       const b2cUtilityAccountFunds = Number(resultParamsMap.get('B2CUtilityAccountAvailableFunds'));
       const systemConfig = await this.systemConfigModel.findOne();
+      console.log('system config', systemConfig)
+      console.log('b2cUtilityAccountFunds', b2cUtilityAccountFunds)
+      console.log('balanceThreshold', systemConfig.data.balanceThreshold)
 
       if (systemConfig?.data?.balanceThreshold && b2cUtilityAccountFunds <= systemConfig.data.balanceThreshold) {
         const balanceAlertAdmins = systemConfig.data.notificationAdmins?.filter(admin =>
