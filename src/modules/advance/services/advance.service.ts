@@ -42,7 +42,7 @@ export class AdvanceService {
     private readonly systemConfigModel: Model<SystemConfigDocument>,
     private readonly systemLogsService: SystemLogsService,
     private readonly notificationService: NotificationService,
-  ) {}
+  ) { }
 
   async create(
     employeeId: string,
@@ -195,19 +195,19 @@ export class AdvanceService {
     });
 
     const message = `Your advance request of KES ${formattedAmount} has been submitted successfully. You will be notified once it is approved. Thank you for using our service.`;
-    
+
     // Send SMS notification
     await this.notificationService.sendSMS(employee.phoneNumber, message);
 
     // Format values for email template
-    const monthlyInstallment = (createAdvanceDto.amount / createAdvanceDto.repaymentPeriod).toLocaleString('en-KE', { 
-      minimumFractionDigits: 2 
+    const monthlyInstallment = (createAdvanceDto.amount / createAdvanceDto.repaymentPeriod).toLocaleString('en-KE', {
+      minimumFractionDigits: 2
     });
-    const totalRepayment = createAdvanceDto.amount.toLocaleString('en-KE', { 
-      minimumFractionDigits: 2 
+    const totalRepayment = createAdvanceDto.amount.toLocaleString('en-KE', {
+      minimumFractionDigits: 2
     });
-    const paymentMethod = createAdvanceDto.preferredPaymentMethod 
-      ? createAdvanceDto.preferredPaymentMethod.toUpperCase() 
+    const paymentMethod = createAdvanceDto.preferredPaymentMethod
+      ? createAdvanceDto.preferredPaymentMethod.toUpperCase()
       : 'NOT SPECIFIED';
 
     // Create HTML email template
@@ -541,35 +541,21 @@ export class AdvanceService {
     const config = await this.getAdvanceConfig();
     const maxAdvanceAmount = (basicSalary * config.maxAdvancePercentage) / 100;
 
-    // Get current date and calculate working days
+    // Get current date
     const today = new Date();
     const currentMonth = today.getMonth() + 1;
     const currentYear = today.getFullYear();
-
-    let workingDaysCount = 0;
-    let lastNonWeekendAmount = 0;
-    let availableAdvance = 0;
-
-    // Calculate up to today's date
-    for (let day = 1; day <= today.getDate(); day++) {
-      const currentDate = new Date(currentYear, currentMonth - 1, day);
-      const isWeekend =
-        currentDate.getDay() === 0 || currentDate.getDay() === 6;
-      const isHoliday = await this.isHoliday(currentDate);
-
-      if (!isWeekend && !isHoliday) {
-        workingDaysCount++;
-        // Calculate total accrual up to this working day
-        const runningTotal = (maxAdvanceAmount / 22) * workingDaysCount;
-
-        // Cap at maxAdvanceAmount and round to nearest 100
-        const cappedAmount = Math.min(runningTotal, maxAdvanceAmount);
-        availableAdvance = Math.floor(cappedAmount / 100) * 100;
-        lastNonWeekendAmount = availableAdvance;
-      } else {
-        availableAdvance = lastNonWeekendAmount;
-      }
-    }
+    
+    // Get total days in current month
+    const lastDayOfMonth = new Date(currentYear, currentMonth, 0).getDate();
+    
+    // Calculate daily increment
+    const dailyIncrement = maxAdvanceAmount / lastDayOfMonth;
+    
+    // Calculate available advance based on current day
+    const runningTotal = dailyIncrement * today.getDate();
+    const cappedAmount = Math.min(runningTotal, maxAdvanceAmount);
+    const availableAdvance = Math.floor(cappedAmount / 100) * 100;
 
     // Get advance history metrics
     const advances = await this.advanceModel.find({
@@ -591,9 +577,6 @@ export class AdvanceService {
         // Add to repayment balance if advance is disbursed or being repaid
         if (advance.status === 'disbursed' || advance.status === 'repaying') {
           const amountRepaid = advance.amountRepaid || 0;
-          // const interestRate = advance.interestRate || 0;
-          // const interest = (advance.amount * interestRate) / 100;
-          // const totalDue = advance.amount + interest;
           const totalDue = advance.amount;
           acc.repaymentBalance += Math.ceil(totalDue - amountRepaid);
         }
@@ -675,60 +658,44 @@ export class AdvanceService {
     const config = await this.getAdvanceConfig();
     const maxAdvanceAmount = (basicSalary * config.maxAdvancePercentage) / 100;
 
-    // Get all days in the month - only for the specified month
-    const startDate = new Date(year, month - 1, 1); // First day of month
-    const endDate = new Date(year, month, 0); // Last day of month
+    // Get all days in the month
+    const startDate = new Date(year, month - 1, 1);
+    const endDate = new Date(year, month, 0);
     const daysInMonth = endDate.getDate();
 
     const dailyAdvances: DailyAdvanceDto[] = [];
-    let workingDaysCount = 0;
-    let lastNonWeekendAmount = 0;
 
     // Calculate available advance for each day
     for (let day = 1; day <= daysInMonth; day++) {
       const currentDate = new Date(year, month - 1, day);
-      const isWeekend =
-        currentDate.getDay() === 0 || currentDate.getDay() === 6;
       const isHoliday = await this.isHoliday(currentDate);
 
-      let currentAmount;
+      // Calculate daily increment (maxAdvanceAmount divided by total days in month)
+      const dailyIncrement = maxAdvanceAmount / daysInMonth;
+      const runningTotal = dailyIncrement * day;
 
-      if (!isWeekend && !isHoliday) {
-        workingDaysCount++;
-        // Calculate total accrual up to this working day
-        const runningTotal = (maxAdvanceAmount / 22) * workingDaysCount;
-
-        // Cap at maxAdvanceAmount and round to nearest 100
-        const cappedAmount = Math.min(runningTotal, maxAdvanceAmount);
-        currentAmount = Math.floor(cappedAmount / 100) * 100;
-        lastNonWeekendAmount = currentAmount;
-      } else {
-        currentAmount = lastNonWeekendAmount;
-      }
+      // Cap at maxAdvanceAmount and round to nearest 100
+      const cappedAmount = Math.min(runningTotal, maxAdvanceAmount);
+      const currentAmount = Math.floor(cappedAmount / 100) * 100;
 
       dailyAdvances.push({
         date: currentDate.toISOString().split('T')[0],
         availableAmount: currentAmount,
         percentageOfSalary: (currentAmount / basicSalary) * 100,
-        isWeekend,
+        isWeekend: false, // Always false as requested
         isHoliday,
       });
     }
 
-    // Filter out any dates from previous month
-    const filteredAdvances = dailyAdvances.filter(
-      (advance) => new Date(advance.date).getMonth() === month - 1,
-    );
-
     // Get today's date and find today's available amount
     const today = new Date();
-
-    // Find the last non-weekend day up to today
     let lastAvailableAmount = 0;
-    for (let i = filteredAdvances.length - 1; i >= 0; i--) {
-      const advance = filteredAdvances[i];
+
+    // Find the most recent amount up to today
+    for (let i = dailyAdvances.length - 1; i >= 0; i--) {
+      const advance = dailyAdvances[i];
       const advanceDate = new Date(advance.date);
-      if (advanceDate <= today && !advance.isWeekend && !advance.isHoliday) {
+      if (advanceDate <= today) {
         lastAvailableAmount = advance.availableAmount;
         break;
       }
@@ -740,7 +707,7 @@ export class AdvanceService {
       basicSalary,
       maxAdvancePercentage: config.maxAdvancePercentage,
       maxAdvanceAmount,
-      dailyAdvances: filteredAdvances,
+      dailyAdvances,
       totalAvailableToday: lastAvailableAmount,
       previousAdvances: [],
     };
@@ -815,9 +782,6 @@ export class AdvanceService {
         // Add to repayment balance if advance is disbursed or being repaid
         if (advance.status === 'disbursed' || advance.status === 'repaying') {
           const amountRepaid = advance.amountRepaid || 0;
-          // const interestRate = advance.interestRate || 0;
-          // const interest = (advance.amount * interestRate) / 100;
-          // const totalDue = advance.amount + interest;
           const totalDue = advance.amount;
           acc.repaymentBalance += Math.ceil(totalDue - amountRepaid);
         }
@@ -983,11 +947,11 @@ export class AdvanceService {
             ` : ''}
             <tr>
               <td style="padding: 8px 0; color: #64748b;">Update Date</td>
-              <td style="padding: 8px 0; color: #1e293b; text-align: right;">${new Date().toLocaleDateString('en-KE', { 
-                day: '2-digit',
-                month: 'long',
-                year: 'numeric'
-              })}</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">${new Date().toLocaleDateString('en-KE', {
+      day: '2-digit',
+      month: 'long',
+      year: 'numeric'
+    })}</td>
             </tr>
           </table>
         </div>
