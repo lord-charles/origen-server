@@ -947,41 +947,122 @@ export class AdvanceService {
     const config = await this.getAdvanceConfig();
     const maxAdvanceAmount = (basicSalary * config.maxAdvancePercentage) / 100;
 
-    // Get current date and calculate working days
+    // Get current date
     const today = new Date();
     const currentMonth = today.getMonth() + 1;
     const currentYear = today.getFullYear();
 
     let workingDaysCount = 0;
-    let lastNonWeekendAmount = 0;
-    let availableAdvance = 0;
 
-    // Calculate up to today's date
+    // Calculate working days up to today, excluding weekends and holidays
     for (let day = 1; day <= today.getDate(); day++) {
       const currentDate = new Date(currentYear, currentMonth - 1, day);
-      const isWeekend =
-        currentDate.getDay() === 0 || currentDate.getDay() === 6;
+      const isWeekend = currentDate.getDay() === 0 || currentDate.getDay() === 6;
       const isHoliday = await this.isHoliday(currentDate);
 
       if (!isWeekend && !isHoliday) {
         workingDaysCount++;
-        // Calculate total accrual up to this working day
-        const runningTotal = (maxAdvanceAmount / 22) * workingDaysCount;
-
-        // Cap at maxAdvanceAmount and round to nearest 100
-        const cappedAmount = Math.min(runningTotal, maxAdvanceAmount);
-        availableAdvance = Math.floor(cappedAmount / 100) * 100;
-        lastNonWeekendAmount = availableAdvance;
-      } else {
-        availableAdvance = lastNonWeekendAmount;
       }
     }
+
+    // Calculate available advance based on working days passed
+    const totalMonthlyWorkingDays = 22; // Standard working days in a month
+    const availableAdvance = Math.floor(
+      (maxAdvanceAmount * workingDaysCount) / totalMonthlyWorkingDays / 100
+    ) * 100;
 
     return {
       availableAdvance,
       ...metrics,
     };
   }
+
+  // private async calculateAdvanceMetrics(employeeId: string) {
+  //   // Get advance history metrics
+  //   const advances = await this.advanceModel.find({
+  //     employee: employeeId,
+  //   });
+
+  //   // Calculate metrics based on advance statuses
+  //   const metrics = advances.reduce(
+  //     (acc, advance) => {
+  //       // Count all disbursed advances as previous advances
+  //       if (
+  //         advance.status === 'disbursed' ||
+  //         advance.status === 'repaying' ||
+  //         advance.status === 'repaid'
+  //       ) {
+  //         acc.totalDisbursed += advance.amount;
+  //       }
+
+  //       // Add to repayment balance if advance is disbursed or being repaid
+  //       if (advance.status === 'disbursed' || advance.status === 'repaying') {
+  //         const amountRepaid = advance.amountRepaid || 0;
+  //         const totalDue = advance.amount;
+  //         acc.repaymentBalance += Math.ceil(totalDue - amountRepaid);
+  //       }
+
+  //       // Calculate total repaid amount
+  //       if (advance.amountRepaid) {
+  //         acc.totalRepaid += advance.amountRepaid;
+  //       }
+
+  //       return acc;
+  //     },
+  //     { totalDisbursed: 0, repaymentBalance: 0, totalRepaid: 0 },
+  //   );
+
+  //   // Get employee's base salary from user profile
+  //   const employee = await this.userModel
+  //     .findById(employeeId)
+  //     .select('baseSalary');
+  //   if (!employee) {
+  //     throw new NotFoundException('Employee not found');
+  //   }
+
+  //   const basicSalary = employee.baseSalary;
+  //   if (!basicSalary) {
+  //     throw new BadRequestException('Employee base salary not set');
+  //   }
+
+  //   const config = await this.getAdvanceConfig();
+  //   const maxAdvanceAmount = (basicSalary * config.maxAdvancePercentage) / 100;
+
+  //   // Get current date and calculate working days
+  //   const today = new Date();
+  //   const currentMonth = today.getMonth() + 1;
+  //   const currentYear = today.getFullYear();
+
+  //   let workingDaysCount = 0;
+  //   let lastNonWeekendAmount = 0;
+  //   let availableAdvance = 0;
+
+  //   // Calculate up to today's date
+  //   for (let day = 1; day <= today.getDate(); day++) {
+  //     const currentDate = new Date(currentYear, currentMonth - 1, day);
+  //     const isWeekend =
+  //       currentDate.getDay() === 0 || currentDate.getDay() === 6;
+  //     const isHoliday = await this.isHoliday(currentDate);
+
+  //     if (!isWeekend && !isHoliday) {
+  //       workingDaysCount++;
+  //       // Calculate total accrual up to this working day
+  //       const runningTotal = (maxAdvanceAmount / 22) * workingDaysCount;
+
+  //       // Cap at maxAdvanceAmount and round to nearest 100
+  //       const cappedAmount = Math.min(runningTotal, maxAdvanceAmount);
+  //       availableAdvance = Math.floor(cappedAmount / 100) * 100;
+  //       lastNonWeekendAmount = availableAdvance;
+  //     } else {
+  //       availableAdvance = lastNonWeekendAmount;
+  //     }
+  //   }
+
+  //   return {
+  //     availableAdvance,
+  //     ...metrics,
+  //   };
+  // }
 
   private validateStatusTransition(currentStatus: string, newStatus: string) {
     const validTransitions: { [key: string]: string[] } = {
