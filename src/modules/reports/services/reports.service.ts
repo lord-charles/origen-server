@@ -23,18 +23,18 @@ export class ReportsService {
     private systemConfigModel: Model<SystemConfig>,
     private readonly notificationService: NotificationService,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
   @Cron(CronExpression.EVERY_DAY_AT_10AM, {
     name: 'check-and-generate-monthly-report',
     timeZone: 'Africa/Nairobi'
   })
-  
+
   async checkAndGenerateMonthlyReport() {
     try {
       this.logger.debug('Running monthly report check...');
       const config = await this.getNotificationConfig();
-      
+
       if (!config?.data?.reportGenerationDay) {
         this.logger.debug('Report generation day not configured');
         return;
@@ -42,7 +42,7 @@ export class ReportsService {
 
       const now = new Date();
       this.logger.debug(`Current date: ${now.getDate()}, Report generation day: ${config.data.reportGenerationDay}`);
-      
+
       if (now.getDate() === config.data.reportGenerationDay) {
         this.logger.log('Starting monthly report generation...');
         await this.generateAndSendMonthlyReport();
@@ -134,7 +134,7 @@ export class ReportsService {
       totalInterest,
       totalOutstanding: totalAmount - totalRepaid,
       averageAmount: advances.length ? totalAmount / advances.length : 0,
-      averageRepaymentPeriod: advances.length ? 
+      averageRepaymentPeriod: advances.length ?
         advances.reduce((sum, adv) => sum + adv.repaymentPeriod, 0) / advances.length : 0,
       statusBreakdown: this.getStatusBreakdown(advances),
       departmentBreakdown: this.getDepartmentBreakdown(advances),
@@ -183,7 +183,7 @@ export class ReportsService {
 
     // Styling
     worksheet.properties.defaultRowHeight = 20;
-    
+
     // Define columns with proper width and styling
     worksheet.columns = [
       { header: 'Employee ID', key: 'empId', width: 15 },
@@ -258,7 +258,7 @@ export class ReportsService {
 
       const row = worksheet.addRow({
         empId: advance.employee?.employeeId || 'N/A',
-        name: advance.employee?.firstName && advance.employee?.lastName ? 
+        name: advance.employee?.firstName && advance.employee?.lastName ?
           `${advance.employee.firstName} ${advance.employee.lastName}` : 'N/A',
         nationalId: advance.employee?.nationalId || 'N/A',
         email: advance.employee?.email || 'N/A',
@@ -278,10 +278,10 @@ export class ReportsService {
         status: advance.status,
         requestDate: format(new Date(advance.requestedDate), 'dd MMM yyyy HH:mm', { locale: enGB }),
         approvalDate: advance.approvedDate ? format(new Date(advance.approvedDate), 'dd MMM yyyy HH:mm', { locale: enGB }) : 'N/A',
-        approvedBy: advance.approvedBy?.firstName ? 
+        approvedBy: advance.approvedBy?.firstName ?
           `${advance.approvedBy.firstName} ${advance.approvedBy.lastName} (${advance.approvedBy.employeeId})` : 'N/A',
         disbursedDate: advance.disbursedDate ? format(new Date(advance.disbursedDate), 'dd MMM yyyy HH:mm', { locale: enGB }) : 'N/A',
-        disbursedBy: advance.disbursedBy?.firstName ? 
+        disbursedBy: advance.disbursedBy?.firstName ?
           `${advance.disbursedBy.firstName} ${advance.disbursedBy.lastName} (${advance.disbursedBy.employeeId})` : 'N/A',
         paymentMethod: advance.preferredPaymentMethod,
         comments: advance.comments || 'N/A',
@@ -345,21 +345,21 @@ export class ReportsService {
       margins: { top: 50, bottom: 50, left: 50, right: 50 },
       bufferPages: true,
     });
-    
+
     const buffers: any[] = [];
     doc.on('data', buffers.push.bind(buffers));
-  
+
     // Header
     doc.fontSize(24).font('Helvetica-Bold').text('Innova Limited', { align: 'center' });
     doc.moveDown(0.5);
     doc.fontSize(18).text('Monthly Advance Report', { align: 'center' });
     doc.fontSize(14).text(`Period: ${data.period}`, { align: 'center' });
     doc.moveDown(1.5);
-  
+
     // Summary Section
     doc.fontSize(16).font('Helvetica-Bold').text('Summary', { underline: true });
     doc.moveDown(0.5);
-    
+
     const summaryData = [
       ['Total Advances', data.summary.totalAdvances],
       ['Total Amount', `KES ${data.summary.totalAmount.toLocaleString()}`],
@@ -370,56 +370,56 @@ export class ReportsService {
       ['Average Amount', `KES ${data.summary.averageAmount.toLocaleString()}`],
       ['Avg. Repayment Period', `${data.summary.averageRepaymentPeriod.toFixed(1)} months`]
     ];
-  
+
     summaryData.forEach(([label, value]) => {
       doc.fontSize(12).text(`${label}: ${value}`);
     });
-    
+
     doc.moveDown(1.5);
-  
+
     // Status & Department Breakdown
     doc.fontSize(14).font('Helvetica-Bold').text('Status Breakdown', { underline: true });
     Object.entries(data.summary.statusBreakdown).forEach(([status, count]) => {
       doc.fontSize(12).text(`• ${status}: ${count}`, { indent: 10 });
     });
     doc.moveDown(1);
-    
+
     doc.fontSize(14).text('Department Breakdown', { underline: true });
     Object.entries(data.summary.departmentBreakdown).forEach(([dept, info]: [string, any]) => {
       doc.fontSize(12).text(`• ${dept}: ${info.count} advances - KES ${info.amount.toLocaleString()}`, { indent: 10 });
     });
-    
+
     doc.moveDown(2);
-  
+
     // Detailed Advance List
     doc.fontSize(16).font('Helvetica-Bold').text('Detailed Advance List', { underline: true });
     doc.moveDown(1);
-    
+
     data.advances.forEach((advance: any) => {
       if (doc.y > 650) doc.addPage();
-      
+
       doc.fontSize(13).font('Helvetica-Bold').text(`Employee: ${advance.employee?.firstName} ${advance.employee?.lastName}`);
       doc.fontSize(11).font('Helvetica').text(`ID: ${advance.employee?.employeeId || 'N/A'}`);
       doc.text(`Department: ${advance.employee?.department || 'N/A'}`);
       doc.text(`Position: ${advance.employee?.position || 'N/A'}`);
       doc.moveDown(0.5);
-  
+
       doc.fontSize(13).font('Helvetica-Bold').text('Financial Details');
       doc.fontSize(11).font('Helvetica').text(`Amount: KES ${advance.amount.toLocaleString()}`);
       doc.text(`Interest (${advance.interestRate}%): KES ${((advance.amount * advance.interestRate) / 100).toLocaleString()}`);
       doc.text(`Repaid: KES ${(advance.amountRepaid || 0).toLocaleString()}`);
       doc.text(`Outstanding: KES ${(advance.totalRepayment - (advance.amountRepaid || 0)).toLocaleString()}`);
       doc.moveDown(0.5);
-  
+
       doc.fontSize(13).font('Helvetica-Bold').text('Status & Timeline');
       doc.fontSize(11).text(`Status: ${advance.status.toUpperCase()}`);
       doc.text(`Requested: ${advance.requestedDate}`);
       if (advance.approvedDate) doc.text(`Approved: ${advance.approvedDate}`);
       if (advance.disbursedDate) doc.text(`Disbursed: ${advance.disbursedDate}`);
-      
+
       doc.moveDown(1.5);
     });
-  
+
     // Page numbers
     let pageCount = doc.bufferedPageRange().count;
     for (let i = 0; i < pageCount; i++) {
@@ -430,14 +430,14 @@ export class ReportsService {
       }
       doc.fontSize(10).text(`Page ${i + 1} of ${pageCount}`, 50, doc.page.height - 50, { align: 'center' });
     }
-    
+
     doc.end();
-  
+
     return new Promise((resolve) => {
       doc.on('end', () => resolve(Buffer.concat(buffers)));
     });
   }
-  
+
 
   private getStatusColor(status: string): string {
     switch (status.toLowerCase()) {
@@ -465,7 +465,7 @@ export class ReportsService {
       phone: advance.employee?.phoneNumber || 'N/A',
       department: advance.employee?.department || 'N/A',
       position: advance.employee?.position || 'N/A',
-      
+
       // Advance Details
       purpose: advance.purpose || 'N/A',
       amount: advance.amount,
@@ -477,17 +477,17 @@ export class ReportsService {
       outstanding: advance.totalRepayment - (advance.amountRepaid || 0),
       repaymentPeriod: advance.repaymentPeriod,
       installmentAmount: advance.installmentAmount,
-      
+
       // Status and Dates
       status: advance.status,
       requestDate: format(new Date(advance.requestedDate), 'dd MMM yyyy HH:mm', { locale: enGB }),
       approvalDate: advance.approvedDate ? format(new Date(advance.approvedDate), 'dd MMM yyyy HH:mm', { locale: enGB }) : 'N/A',
-      approvedBy: advance.approvedBy?.firstName ? 
+      approvedBy: advance.approvedBy?.firstName ?
         `${advance.approvedBy.firstName} ${advance.approvedBy.lastName} (${advance.approvedBy.employeeId})` : 'N/A',
       disbursedDate: advance.disbursedDate ? format(new Date(advance.disbursedDate), 'dd MMM yyyy HH:mm', { locale: enGB }) : 'N/A',
-      disbursedBy: advance.disbursedBy?.firstName ? 
+      disbursedBy: advance.disbursedBy?.firstName ?
         `${advance.disbursedBy.firstName} ${advance.disbursedBy.lastName} (${advance.disbursedBy.employeeId})` : 'N/A',
-      
+
       // Additional Details
       paymentMethod: advance.preferredPaymentMethod,
       comments: advance.comments || 'N/A'
@@ -505,7 +505,7 @@ export class ReportsService {
         { id: 'phone', title: 'Phone' },
         { id: 'department', title: 'Department' },
         { id: 'position', title: 'Position' },
-        
+
         // Advance Details
         { id: 'purpose', title: 'Purpose' },
         { id: 'amount', title: 'Amount (KES)' },
@@ -517,7 +517,7 @@ export class ReportsService {
         { id: 'outstanding', title: 'Outstanding (KES)' },
         { id: 'repaymentPeriod', title: 'Repayment Period (Months)' },
         { id: 'installmentAmount', title: 'Installment Amount (KES)' },
-        
+
         // Status and Dates
         { id: 'status', title: 'Status' },
         { id: 'requestDate', title: 'Request Date' },
@@ -525,7 +525,7 @@ export class ReportsService {
         { id: 'approvedBy', title: 'Approved By' },
         { id: 'disbursedDate', title: 'Disbursed Date' },
         { id: 'disbursedBy', title: 'Disbursed By' },
-        
+
         // Additional Details
         { id: 'paymentMethod', title: 'Payment Method' },
         { id: 'comments', title: 'Comments' }
@@ -552,7 +552,7 @@ export class ReportsService {
       ''
     ].join('\n');
 
-    const detailedRecords = records.map(record => 
+    const detailedRecords = records.map(record =>
       Object.values(record).join(',')
     ).join('\n');
 
@@ -564,7 +564,7 @@ export class ReportsService {
       const data = await this.getMonthlyReportData();
       const now = new Date();
       const timestamp = format(now, 'yyyy-MM-dd_HH-mm', { locale: enGB });
-      
+
       switch (docformat.toLowerCase()) {
         case 'pdf':
           return {

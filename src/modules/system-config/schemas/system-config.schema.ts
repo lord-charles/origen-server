@@ -79,7 +79,7 @@ export class SystemConfig {
       name: string;
       email: string;
       phone: string;
-      notificationTypes: Array<'balance_alert' | 'monthly_report'>;
+      notificationTypes: Array<'balance_alert' | 'monthly_report' | 'advance_alert'>;
       notes?: string;
     }>;
     balanceThreshold?: number;

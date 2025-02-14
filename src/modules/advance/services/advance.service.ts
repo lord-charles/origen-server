@@ -268,6 +268,87 @@ export class AdvanceService {
       );
     }
 
+    // Get system configuration for admin notifications
+    const systemConfig = await this.systemConfigModel.findOne({
+      key: 'notification_config',
+      type: 'notification',
+      isActive: true,
+    });
+
+    if (systemConfig?.data?.notificationAdmins) {
+      // Filter admins who have subscribed to advance alerts
+      const advanceAdmins = systemConfig.data.notificationAdmins.filter(
+        (admin) => admin.notificationTypes.includes('advance_alert')
+      );
+
+      // Send notifications to all relevant admins
+      for (const admin of advanceAdmins) {
+        // Create admin notification message
+        const adminMessage = `New Advance Request Alert:
+Employee: ${employee.firstName} ${employee.lastName}
+Amount: KES ${formattedAmount}
+Purpose: ${createAdvanceDto.purpose || 'Not specified'}`;
+
+        // Send SMS to admin
+        if (admin.phone) {
+          await this.notificationService.sendSMS(admin.phone, adminMessage);
+        }
+
+        // Send email to admin
+        if (admin.email) {
+          const adminEmailTemplate = `
+            <div style="padding: 20px 0;">
+              <div style="background-color: #f8fafc; border-left: 4px solid #0891b2; padding: 16px; margin-bottom: 24px;">
+                <h2 style="margin: 0 0 16px 0; color: #0891b2;">New Advance Request Alert</h2>
+                <table style="width: 100%; border-collapse: collapse;">
+                  <tr>
+                    <td style="padding: 8px 0; color: #64748b;">Employee Name</td>
+                    <td style="padding: 8px 0; color: #1e293b; text-align: right;">${employee.firstName} ${employee.lastName}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #64748b;">Employee ID</td>
+                    <td style="padding: 8px 0; color: #1e293b; text-align: right;">${employee.employeeId || 'N/A'}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #64748b;">Request Amount</td>
+                    <td style="padding: 8px 0; color: #1e293b; text-align: right;">KES ${formattedAmount}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #64748b;">Purpose</td>
+                    <td style="padding: 8px 0; color: #1e293b; text-align: right;">${createAdvanceDto.purpose || 'Not specified'}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #64748b;">Repayment Period</td>
+                    <td style="padding: 8px 0; color: #1e293b; text-align: right;">${createAdvanceDto.repaymentPeriod} months</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #64748b;">Monthly Installment</td>
+                    <td style="padding: 8px 0; color: #1e293b; text-align: right;">KES ${monthlyInstallment}</td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 8px 0; color: #64748b;">Payment Method</td>
+                    <td style="padding: 8px 0; color: #1e293b; text-align: right;">${paymentMethod}</td>
+                  </tr>
+                </table>
+              </div>
+              <div style="margin-top: 24px; padding: 16px; background-color: #f0f9ff; border-radius: 4px;">
+                <h3 style="margin: 0 0 8px 0; color: #0369a1;">Action Required</h3>
+                <p style="margin: 0; color: #075985; font-size: 14px;">
+                  Please review this advance request and take appropriate action (approve/decline) through the admin portal.
+                </p>
+              </div>
+            </div>
+          `;
+
+          await this.notificationService.sendEmail(
+            admin.email,
+            'New Advance Request - Action Required',
+            adminEmailTemplate,
+          );
+        }
+      }
+    }
+
     return savedAdvance;
   }
 

@@ -15,10 +15,10 @@ export class NotificationAdminDto {
   @IsString()
   phone: string;
 
-  @ApiProperty({ enum: ['balance_alert', 'monthly_report'], isArray: true })
+  @ApiProperty({ enum: ['balance_alert', 'monthly_report', 'advance_alert'], isArray: true })
   @IsArray()
-  @IsEnum(['balance_alert', 'monthly_report'], { each: true })
-  notificationTypes: Array<'balance_alert' | 'monthly_report'>;
+  @IsEnum(['balance_alert', 'monthly_report', 'advance_alert'], { each: true })
+  notificationTypes: Array<'balance_alert' | 'monthly_report' | 'advance_alert'>;
 
   @ApiProperty({ required: false })
   @IsString()
