@@ -253,9 +253,6 @@ export class ReportsService {
 
     // Add data rows
     data.advances.forEach((advance) => {
-      const interestAmount = (advance.amount * advance.interestRate) / 100;
-      const outstanding = advance.totalRepayment - (advance.amountRepaid || 0);
-
       const row = worksheet.addRow({
         empId: advance.employee?.employeeId || 'N/A',
         name: advance.employee?.firstName && advance.employee?.lastName ?
@@ -268,19 +265,19 @@ export class ReportsService {
         purpose: advance.purpose,
         amount: advance.amount,
         interestRate: advance.interestRate / 100,
-        interestAmount: interestAmount,
+        interestAmount: (advance.amount * advance.interestRate) / 100,
         totalRepayment: advance.totalRepayment,
         amountWithdrawn: advance.amountWithdrawn || 0,
         repaidAmount: advance.amountRepaid || 0,
-        outstanding: outstanding,
+        outstanding: advance.totalRepayment - (advance.amountRepaid || 0),
         repaymentPeriod: advance.repaymentPeriod,
         installmentAmount: advance.installmentAmount,
         status: advance.status,
-        requestDate: format(new Date(advance.requestedDate), 'dd MMM yyyy HH:mm', { locale: enGB }),
-        approvalDate: advance.approvedDate ? format(new Date(advance.approvedDate), 'dd MMM yyyy HH:mm', { locale: enGB }) : 'N/A',
+        requestDate: this.formatDate(advance.requestedDate),
+        approvalDate: this.formatDate(advance.approvedDate),
         approvedBy: advance.approvedBy?.firstName ?
           `${advance.approvedBy.firstName} ${advance.approvedBy.lastName} (${advance.approvedBy.employeeId})` : 'N/A',
-        disbursedDate: advance.disbursedDate ? format(new Date(advance.disbursedDate), 'dd MMM yyyy HH:mm', { locale: enGB }) : 'N/A',
+        disbursedDate: this.formatDate(advance.disbursedDate),
         disbursedBy: advance.disbursedBy?.firstName ?
           `${advance.disbursedBy.firstName} ${advance.disbursedBy.lastName} (${advance.disbursedBy.employeeId})` : 'N/A',
         paymentMethod: advance.preferredPaymentMethod,
@@ -439,21 +436,6 @@ export class ReportsService {
   }
 
 
-  private getStatusColor(status: string): string {
-    switch (status.toLowerCase()) {
-      case 'approved':
-        return '#2ecc71';
-      case 'pending':
-        return '#f1c40f';
-      case 'disbursed':
-        return '#3498db';
-      case 'rejected':
-        return '#e74c3c';
-      default:
-        return '#000000';
-    }
-  }
-
   private async generateCSVReport(data: any): Promise<Buffer> {
     const records = data.advances.map((advance: any) => ({
       // Employee Details
@@ -468,28 +450,28 @@ export class ReportsService {
 
       // Advance Details
       purpose: advance.purpose || 'N/A',
-      amount: advance.amount,
-      interestRate: advance.interestRate,
-      interestAmount: (advance.amount * advance.interestRate) / 100,
-      totalRepayment: advance.totalRepayment,
+      amount: advance.amount || 0,
+      interestRate: advance.interestRate || 0,
+      interestAmount: ((advance.amount || 0) * (advance.interestRate || 0)) / 100,
+      totalRepayment: advance.totalRepayment || 0,
       amountWithdrawn: advance.amountWithdrawn || 0,
       amountRepaid: advance.amountRepaid || 0,
-      outstanding: advance.totalRepayment - (advance.amountRepaid || 0),
-      repaymentPeriod: advance.repaymentPeriod,
-      installmentAmount: advance.installmentAmount,
+      outstanding: (advance.totalRepayment || 0) - (advance.amountRepaid || 0),
+      repaymentPeriod: advance.repaymentPeriod || 0,
+      installmentAmount: advance.installmentAmount || 0,
 
       // Status and Dates
-      status: advance.status,
-      requestDate: format(new Date(advance.requestedDate), 'dd MMM yyyy HH:mm', { locale: enGB }),
-      approvalDate: advance.approvedDate ? format(new Date(advance.approvedDate), 'dd MMM yyyy HH:mm', { locale: enGB }) : 'N/A',
+      status: advance.status || 'N/A',
+      requestDate: this.formatDate(advance.requestedDate),
+      approvalDate: this.formatDate(advance.approvedDate),
       approvedBy: advance.approvedBy?.firstName ?
         `${advance.approvedBy.firstName} ${advance.approvedBy.lastName} (${advance.approvedBy.employeeId})` : 'N/A',
-      disbursedDate: advance.disbursedDate ? format(new Date(advance.disbursedDate), 'dd MMM yyyy HH:mm', { locale: enGB }) : 'N/A',
+      disbursedDate: this.formatDate(advance.disbursedDate),
       disbursedBy: advance.disbursedBy?.firstName ?
         `${advance.disbursedBy.firstName} ${advance.disbursedBy.lastName} (${advance.disbursedBy.employeeId})` : 'N/A',
 
       // Additional Details
-      paymentMethod: advance.preferredPaymentMethod,
+      paymentMethod: advance.preferredPaymentMethod || 'N/A',
       comments: advance.comments || 'N/A'
     }));
 
@@ -559,28 +541,95 @@ export class ReportsService {
     return Buffer.from(summaryLines + '\n' + detailedRecords);
   }
 
+  private formatDate(date: any): string {
+    if (!date) return 'N/A';
+    try {
+      const parsedDate = new Date(date);
+      if (isNaN(parsedDate.getTime())) return 'N/A';
+      return format(parsedDate, 'dd MMM yyyy HH:mm', { locale: enGB });
+    } catch {
+      return 'N/A';
+    }
+  }
+
+  filterAndSummarizeAdvances(advances: any[]) {
+    const filteredAdvances = advances.filter(
+      (advance) => advance.status === 'disbursed' || advance.status === 'repaying'
+    );
+
+    const groupedAdvances = new Map<string, any>();
+
+    filteredAdvances.forEach((advance) => {
+      const employeeId = advance.employee?.nationalId;
+      if (!employeeId) return;
+
+      if (!groupedAdvances.has(employeeId)) {
+        groupedAdvances.set(employeeId, {
+          employee: advance.employee,
+          amount: 0,
+          amountRepaid: 0,
+          amountWithdrawn: 0,
+          totalRepayment: 0,
+          installmentAmount: 0,
+          status: new Set<string>(),
+          approvedBy: new Set<string>(),
+          disbursedBy: new Set<string>()
+        });
+      }
+
+      const existing = groupedAdvances.get(employeeId);
+
+      existing.amount += advance.amount;
+      existing.amountRepaid += advance.amountRepaid;
+      existing.amountWithdrawn += advance.amountWithdrawn;
+      existing.totalRepayment += advance.totalRepayment;
+      existing.installmentAmount += advance.installmentAmount;
+
+      existing.status.add(advance.status);
+      if (advance.approvedBy?.firstName) {
+        existing.approvedBy.add(`${advance.approvedBy.firstName} ${advance.approvedBy.lastName}`);
+      }
+      if (advance.disbursedBy?.firstName) {
+        existing.disbursedBy.add(`${advance.disbursedBy.firstName} ${advance.disbursedBy.lastName}`);
+      }
+    });
+
+    return Array.from(groupedAdvances.values()).map((entry) => ({
+      ...entry,
+      status: Array.from(entry.status).join(' + '),
+      approvedBy: Array.from(entry.approvedBy).join(' + '),
+      disbursedBy: Array.from(entry.disbursedBy).join(' + ')
+    }));
+  }
+
   async generateManualReport(docformat: 'pdf' | 'excel' | 'csv'): Promise<{ buffer: Buffer; filename: string; contentType: string }> {
     try {
       const data = await this.getMonthlyReportData();
+      const aggregatedData = {
+        period: data.period,
+        summary: data.summary,
+        advances: this.filterAndSummarizeAdvances(data.advances)
+      };
+
       const now = new Date();
       const timestamp = format(now, 'yyyy-MM-dd_HH-mm', { locale: enGB });
 
       switch (docformat.toLowerCase()) {
         case 'pdf':
           return {
-            buffer: await this.generatePDFReport(data),
+            buffer: await this.generatePDFReport(aggregatedData),
             filename: `advance_report_${timestamp}.pdf`,
             contentType: 'application/pdf'
           };
         case 'excel':
           return {
-            buffer: await this.generateExcelReport(data),
+            buffer: await this.generateExcelReport(aggregatedData),
             filename: `advance_report_${timestamp}.xlsx`,
             contentType: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
           };
         case 'csv':
           return {
-            buffer: await this.generateCSVReport(data),
+            buffer: await this.generateCSVReport(aggregatedData),
             filename: `advance_report_${timestamp}.csv`,
             contentType: 'text/csv'
           };
