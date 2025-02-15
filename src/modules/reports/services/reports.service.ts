@@ -470,7 +470,6 @@ export class ReportsService {
       disbursedBy: advance.disbursedBy?.firstName ?
         `${advance.disbursedBy.firstName} ${advance.disbursedBy.lastName} (${advance.disbursedBy.employeeId})` : 'N/A',
 
-      // Additional Details
       paymentMethod: advance.preferredPaymentMethod || 'N/A',
       comments: advance.comments || 'N/A'
     }));
