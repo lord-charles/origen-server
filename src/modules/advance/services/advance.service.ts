@@ -849,8 +849,10 @@ export class AdvanceService {
     if (!employee) {
       throw new NotFoundException('Employee not found');
     }
-    // TODO: Replace this with actual basic salary from employment/payroll module
-    return 50000; // Placeholder value
+    if (!employee.baseSalary) {
+      throw new NotFoundException('Employee base salary not found');
+    }
+    return employee.baseSalary;
   }
 
   private async calculateAdvanceMetrics(employeeId: string) {
@@ -859,7 +861,6 @@ export class AdvanceService {
     const monthStart = startOfMonth(today);
     const monthEnd = endOfMonth(today);
 
-    // Get advance history metrics for current month
     const advances = await this.advanceModel.find({
       employee: employeeId,
       createdAt: {
