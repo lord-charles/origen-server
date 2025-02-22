@@ -385,7 +385,6 @@ export class MpesaService {
 
     const {
       Result: {
-        ResultType,
         ResultCode,
         ResultDesc,
         OriginatorConversationID,
@@ -408,8 +407,17 @@ export class MpesaService {
       const receiverPartyPublicName = resultParamsMap.get(
         'ReceiverPartyPublicName',
       ) as string;
-      const phoneNumber = receiverPartyPublicName.split(' ')[0];
 
+      if (!receiverPartyPublicName) {
+        this.logger.error('ReceiverPartyPublicName is undefined in B2C callback');
+        throw new Error('Missing ReceiverPartyPublicName in callback data');
+      }
+
+      const phoneNumber = receiverPartyPublicName.split(' ')[0];
+      if (!phoneNumber) {
+        this.logger.error('Failed to extract phone number from ReceiverPartyPublicName');
+        throw new Error('Invalid phone number format in ReceiverPartyPublicName');
+      }
 
       // Find existing transaction by originatorConversationId
       const existingTransaction = await this.mpesaModel.findOne({
@@ -420,7 +428,6 @@ export class MpesaService {
         transactionType: 'b2c',
         status: 'pending',
       });
-
 
       if (!existingTransaction) {
         throw new Error(

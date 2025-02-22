@@ -42,7 +42,7 @@ export class AdvanceService {
     private readonly systemConfigModel: Model<SystemConfigDocument>,
     private readonly systemLogsService: SystemLogsService,
     private readonly notificationService: NotificationService,
-  ) { }
+  ) {}
 
   async create(
     employeeId: string,
@@ -76,8 +76,11 @@ export class AdvanceService {
       throw new BadRequestException('Employee basic salary not found');
     }
 
+    console.log('Basic salary:', basicSalary);
+
     // Calculate half of basic salary
     const halfBasicSalary = basicSalary / 2;
+    console.log('Half basic salary:', halfBasicSalary);
 
     // Get existing advances in current month
     const monthStart = startOfMonth(new Date());
@@ -113,6 +116,11 @@ export class AdvanceService {
     const totalExistingAmount = existingAdvances.reduce(
       (sum, advance) => sum + advance.amount,
       0,
+    );
+    console.log('Total existing amount:', totalExistingAmount);
+    console.log(
+      'totalExistingAmount + createAdvanceDto.amount:',
+      totalExistingAmount + createAdvanceDto.amount,
     );
 
     // Check if new advance would exceed half of basic salary
@@ -178,15 +186,15 @@ export class AdvanceService {
     const savedAdvance = await advance.save();
 
     // Create system log
-    if (req) {
-      await this.systemLogsService.createLog(
-        'Advance Request',
-        `New advance request of KES ${createAdvanceDto.amount} created`,
-        LogSeverity.INFO,
-        employee.employeeId?.toString(),
-        req,
-      );
-    }
+    // if (req) {
+    //   await this.systemLogsService.createLog(
+    //     'Advance Request',
+    //     `New advance request of KES ${createAdvanceDto.amount} created`,
+    //     LogSeverity.INFO,
+    //     employee.employeeId?.toString(),
+    //     req,
+    //   );
+    // }
 
     // Format amount for notification
     const formattedAmount = createAdvanceDto.amount.toLocaleString('en-KE', {
@@ -197,14 +205,16 @@ export class AdvanceService {
     const message = `Your advance request of KES ${formattedAmount} has been submitted successfully. You will be notified once it is approved. Thank you for using our service.`;
 
     // Send SMS notification
-    await this.notificationService.sendSMS(employee.phoneNumber, message);
+    // await this.notificationService.sendSMS(employee.phoneNumber, message);
 
     // Format values for email template
-    const monthlyInstallment = (createAdvanceDto.amount / createAdvanceDto.repaymentPeriod).toLocaleString('en-KE', {
-      minimumFractionDigits: 2
+    const monthlyInstallment = (
+      createAdvanceDto.amount / createAdvanceDto.repaymentPeriod
+    ).toLocaleString('en-KE', {
+      minimumFractionDigits: 2,
     });
     const totalRepayment = createAdvanceDto.amount.toLocaleString('en-KE', {
-      minimumFractionDigits: 2
+      minimumFractionDigits: 2,
     });
     const paymentMethod = createAdvanceDto.preferredPaymentMethod
       ? createAdvanceDto.preferredPaymentMethod.toUpperCase()
@@ -260,94 +270,94 @@ export class AdvanceService {
     `;
 
     // Send email notification
-    if (employee.email) {
-      await this.notificationService.sendEmail(
-        employee.email,
-        'Salary Advance Request Confirmation',
-        htmlMessage,
-      );
-    }
+    // if (employee.email) {
+    //   await this.notificationService.sendEmail(
+    //     employee.email,
+    //     'Salary Advance Request Confirmation',
+    //     htmlMessage,
+    //   );
+    // }
 
     // Get system configuration for admin notifications
-    const systemConfig = await this.systemConfigModel.findOne({
-      key: 'notification_config',
-      type: 'notification',
-      isActive: true,
-    });
+    //     const systemConfig = await this.systemConfigModel.findOne({
+    //       key: 'notification_config',
+    //       type: 'notification',
+    //       isActive: true,
+    //     });
 
-    if (systemConfig?.data?.notificationAdmins) {
-      // Filter admins who have subscribed to advance alerts
-      const advanceAdmins = systemConfig.data.notificationAdmins.filter(
-        (admin) => admin.notificationTypes.includes('advance_alert')
-      );
+    //     if (systemConfig?.data?.notificationAdmins) {
+    //       // Filter admins who have subscribed to advance alerts
+    //       const advanceAdmins = systemConfig.data.notificationAdmins.filter(
+    //         (admin) => admin.notificationTypes.includes('advance_alert'),
+    //       );
 
-      // Send notifications to all relevant admins
-      for (const admin of advanceAdmins) {
-        // Create admin notification message
-        const adminMessage = `New Advance Request Alert:
-Employee: ${employee.firstName} ${employee.lastName}
-Amount: KES ${formattedAmount}
-Purpose: ${createAdvanceDto.purpose || 'Not specified'}`;
+    //       // Send notifications to all relevant admins
+    //       for (const admin of advanceAdmins) {
+    //         // Create admin notification message
+    //         const adminMessage = `New Advance Request Alert:
+    // Employee: ${employee.firstName} ${employee.lastName}
+    // Amount: KES ${formattedAmount}
+    // Purpose: ${createAdvanceDto.purpose || 'Not specified'}`;
 
-        // Send SMS to admin
-        if (admin.phone) {
-          await this.notificationService.sendSMS(admin.phone, adminMessage);
-        }
+    //         // Send SMS to admin
+    //         if (admin.phone) {
+    //           await this.notificationService.sendSMS(admin.phone, adminMessage);
+    //         }
 
-        // Send email to admin
-        if (admin.email) {
-          const adminEmailTemplate = `
-            <div style="padding: 20px 0;">
-              <div style="background-color: #f8fafc; border-left: 4px solid #0891b2; padding: 16px; margin-bottom: 24px;">
-                <h2 style="margin: 0 0 16px 0; color: #0891b2;">New Advance Request Alert</h2>
-                <table style="width: 100%; border-collapse: collapse;">
-                  <tr>
-                    <td style="padding: 8px 0; color: #64748b;">Employee Name</td>
-                    <td style="padding: 8px 0; color: #1e293b; text-align: right;">${employee.firstName} ${employee.lastName}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #64748b;">Employee ID</td>
-                    <td style="padding: 8px 0; color: #1e293b; text-align: right;">${employee.employeeId || 'N/A'}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #64748b;">Request Amount</td>
-                    <td style="padding: 8px 0; color: #1e293b; text-align: right;">KES ${formattedAmount}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #64748b;">Purpose</td>
-                    <td style="padding: 8px 0; color: #1e293b; text-align: right;">${createAdvanceDto.purpose || 'Not specified'}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #64748b;">Repayment Period</td>
-                    <td style="padding: 8px 0; color: #1e293b; text-align: right;">${createAdvanceDto.repaymentPeriod} months</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #64748b;">Monthly Installment</td>
-                    <td style="padding: 8px 0; color: #1e293b; text-align: right;">KES ${monthlyInstallment}</td>
-                  </tr>
-                  <tr>
-                    <td style="padding: 8px 0; color: #64748b;">Payment Method</td>
-                    <td style="padding: 8px 0; color: #1e293b; text-align: right;">${paymentMethod}</td>
-                  </tr>
-                </table>
-              </div>
-              <div style="margin-top: 24px; padding: 16px; background-color: #f0f9ff; border-radius: 4px;">
-                <h3 style="margin: 0 0 8px 0; color: #0369a1;">Action Required</h3>
-                <p style="margin: 0; color: #075985; font-size: 14px;">
-                  Please review this advance request and take appropriate action (approve/decline) through the admin portal.
-                </p>
-              </div>
-            </div>
-          `;
+    //         // Send email to admin
+    //         if (admin.email) {
+    //           const adminEmailTemplate = `
+    //             <div style="padding: 20px 0;">
+    //               <div style="background-color: #f8fafc; border-left: 4px solid #0891b2; padding: 16px; margin-bottom: 24px;">
+    //                 <h2 style="margin: 0 0 16px 0; color: #0891b2;">New Advance Request Alert</h2>
+    //                 <table style="width: 100%; border-collapse: collapse;">
+    //                   <tr>
+    //                     <td style="padding: 8px 0; color: #64748b;">Employee Name</td>
+    //                     <td style="padding: 8px 0; color: #1e293b; text-align: right;">${employee.firstName} ${employee.lastName}</td>
+    //                   </tr>
+    //                   <tr>
+    //                     <td style="padding: 8px 0; color: #64748b;">Employee ID</td>
+    //                     <td style="padding: 8px 0; color: #1e293b; text-align: right;">${employee.employeeId || 'N/A'}</td>
+    //                   </tr>
+    //                   <tr>
+    //                     <td style="padding: 8px 0; color: #64748b;">Request Amount</td>
+    //                     <td style="padding: 8px 0; color: #1e293b; text-align: right;">KES ${formattedAmount}</td>
+    //                   </tr>
+    //                   <tr>
+    //                     <td style="padding: 8px 0; color: #64748b;">Purpose</td>
+    //                     <td style="padding: 8px 0; color: #1e293b; text-align: right;">${createAdvanceDto.purpose || 'Not specified'}</td>
+    //                   </tr>
+    //                   <tr>
+    //                     <td style="padding: 8px 0; color: #64748b;">Repayment Period</td>
+    //                     <td style="padding: 8px 0; color: #1e293b; text-align: right;">${createAdvanceDto.repaymentPeriod} months</td>
+    //                   </tr>
+    //                   <tr>
+    //                     <td style="padding: 8px 0; color: #64748b;">Monthly Installment</td>
+    //                     <td style="padding: 8px 0; color: #1e293b; text-align: right;">KES ${monthlyInstallment}</td>
+    //                   </tr>
+    //                   <tr>
+    //                     <td style="padding: 8px 0; color: #64748b;">Payment Method</td>
+    //                     <td style="padding: 8px 0; color: #1e293b; text-align: right;">${paymentMethod}</td>
+    //                   </tr>
+    //                 </table>
+    //               </div>
+    //               <div style="margin-top: 24px; padding: 16px; background-color: #f0f9ff; border-radius: 4px;">
+    //                 <h3 style="margin: 0 0 8px 0; color: #0369a1;">Action Required</h3>
+    //                 <p style="margin: 0; color: #075985; font-size: 14px;">
+    //                   Please review this advance request and take appropriate action (approve/decline) through the admin portal.
+    //                 </p>
+    //               </div>
+    //             </div>
+    //           `;
 
-          await this.notificationService.sendEmail(
-            admin.email,
-            'New Advance Request - Action Required',
-            adminEmailTemplate,
-          );
-        }
-      }
-    }
+    //           await this.notificationService.sendEmail(
+    //             admin.email,
+    //             'New Advance Request - Action Required',
+    //             adminEmailTemplate,
+    //           );
+    //         }
+    //       }
+    //     }
 
     return savedAdvance;
   }
@@ -474,10 +484,11 @@ Purpose: ${createAdvanceDto.purpose || 'Not specified'}`;
       maximumFractionDigits: 2,
     });
 
-    const formattedInstallment = updatedAdvance.installmentAmount?.toLocaleString('en-KE', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }) || '0.00';
+    const formattedInstallment =
+      updatedAdvance.installmentAmount?.toLocaleString('en-KE', {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      }) || '0.00';
 
     // Send status-specific notification
     let message = '';
@@ -499,7 +510,7 @@ Purpose: ${createAdvanceDto.purpose || 'Not specified'}`;
           'declined',
           `We regret to inform you that your advance request has been declined.${updateAdvanceStatusDto.comments ? ` Reason: ${updateAdvanceStatusDto.comments}` : ''}`,
           'Please contact HR for more information or to discuss alternative options.',
-          templateData
+          templateData,
         );
         break;
 
@@ -511,7 +522,7 @@ Purpose: ${createAdvanceDto.purpose || 'Not specified'}`;
           'disbursed',
           'Your advance has been successfully disbursed to your account.',
           'You can now check your Innova advance account balance and withdraw the funds.',
-          templateData
+          templateData,
         );
         break;
 
@@ -523,7 +534,7 @@ Purpose: ${createAdvanceDto.purpose || 'Not specified'}`;
           'approved',
           'Congratulations! Your advance request has been approved.',
           'The funds will be disbursed to your account shortly. You will receive another notification once the disbursement is complete.',
-          templateData
+          templateData,
         );
         break;
 
@@ -535,7 +546,7 @@ Purpose: ${createAdvanceDto.purpose || 'Not specified'}`;
           'repaying',
           `Your advance has entered the repayment phase. A monthly installment of KES ${formattedInstallment} will be deducted from your salary.`,
           'Ensure your salary account has sufficient funds for the monthly deductions. The repayment will be automatically processed.',
-          templateData
+          templateData,
         );
         break;
 
@@ -547,7 +558,7 @@ Purpose: ${createAdvanceDto.purpose || 'Not specified'}`;
           'repaid',
           'Congratulations! Your advance has been fully repaid.',
           'You may now apply for another advance if needed. Thank you for your timely repayments.',
-          templateData
+          templateData,
         );
         break;
     }
@@ -853,8 +864,8 @@ Purpose: ${createAdvanceDto.purpose || 'Not specified'}`;
       employee: employeeId,
       createdAt: {
         $gte: monthStart,
-        $lte: monthEnd
-      }
+        $lte: monthEnd,
+      },
     });
 
     // Calculate metrics based on advance statuses
@@ -942,12 +953,12 @@ Purpose: ${createAdvanceDto.purpose || 'Not specified'}`;
 
   private getStatusColor(status: string): string {
     const colors = {
-      pending: '#f59e0b',   // Amber
-      approved: '#10b981',  // Emerald
-      declined: '#ef4444',  // Red
+      pending: '#f59e0b', // Amber
+      approved: '#10b981', // Emerald
+      declined: '#ef4444', // Red
       disbursed: '#3b82f6', // Blue
-      repaying: '#8b5cf6',  // Purple
-      repaid: '#059669',    // Green
+      repaying: '#8b5cf6', // Purple
+      repaid: '#059669', // Green
     };
     return colors[status] || '#6b7280'; // Gray default
   }
@@ -992,7 +1003,7 @@ Purpose: ${createAdvanceDto.purpose || 'Not specified'}`;
       amount: string;
       installment?: string;
       comments?: string;
-    }
+    },
   ): string {
     return `
       <div style="padding: 20px 0;">
@@ -1008,25 +1019,36 @@ Purpose: ${createAdvanceDto.purpose || 'Not specified'}`;
               <td style="padding: 8px 0; color: #64748b;">Advance Amount</td>
               <td style="padding: 8px 0; color: #1e293b; text-align: right;">KES ${data.amount}</td>
             </tr>
-            ${data.installment ? `
+            ${
+              data.installment
+                ? `
             <tr>
               <td style="padding: 8px 0; color: #64748b;">Monthly Installment</td>
               <td style="padding: 8px 0; color: #1e293b; text-align: right;">KES ${data.installment}</td>
             </tr>
-            ` : ''}
-            ${data.comments ? `
+            `
+                : ''
+            }
+            ${
+              data.comments
+                ? `
             <tr>
               <td style="padding: 8px 0; color: #64748b;">Comments</td>
               <td style="padding: 8px 0; color: #1e293b; text-align: right;">${data.comments}</td>
             </tr>
-            ` : ''}
+            `
+                : ''
+            }
             <tr>
               <td style="padding: 8px 0; color: #64748b;">Update Date</td>
-              <td style="padding: 8px 0; color: #1e293b; text-align: right;">${new Date().toLocaleDateString('en-KE', {
-      day: '2-digit',
-      month: 'long',
-      year: 'numeric'
-    })}</td>
+              <td style="padding: 8px 0; color: #1e293b; text-align: right;">${new Date().toLocaleDateString(
+                'en-KE',
+                {
+                  day: '2-digit',
+                  month: 'long',
+                  year: 'numeric',
+                },
+              )}</td>
             </tr>
           </table>
         </div>

@@ -84,7 +84,7 @@ export class SystemConfig {
     }>;
     balanceThreshold?: number;
     reportFormat?: 'excel' | 'pdf' | 'csv';
-    reportGenerationDay?: number; // Day of month for monthly reports
+    reportGenerationDay?: number; 
     enableEmailNotifications?: boolean;
     enableSMSNotifications?: boolean;
   };
