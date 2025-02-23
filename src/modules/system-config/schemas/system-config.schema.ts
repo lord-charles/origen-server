@@ -73,6 +73,33 @@ export class SystemConfig {
     callbackBaseUrl?: string;
     initiatorName?: string;
     securityCredential?: string;
+    accountBalances?: {
+      workingAccount?: {
+        balance: number;
+        currency: string;
+        lastUpdated: Date;
+      };
+      utilityAccount?: {
+        balance: number;
+        currency: string;
+        lastUpdated: Date;
+      };
+      chargesPaidAccount?: {
+        balance: number;
+        currency: string;
+        lastUpdated: Date;
+      };
+      merchantAccount?: {
+        balance: number;
+        currency: string;
+        lastUpdated: Date;
+      };
+      organizationSettlementAccount?: {
+        balance: number;
+        currency: string;
+        lastUpdated: Date;
+      };
+    };
 
     // Notification Configurations
     notificationAdmins?: Array<{
@@ -157,4 +184,3 @@ export class SystemConfig {
 }
 
 export const SystemConfigSchema = SchemaFactory.createForClass(SystemConfig);
-

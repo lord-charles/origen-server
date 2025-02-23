@@ -17,7 +17,10 @@ import {
   Advance,
   AdvanceDocument,
 } from 'src/modules/advance/schemas/advance.schema';
-import { SystemConfig, SystemConfigDocument } from 'src/modules/system-config/schemas/system-config.schema';
+import {
+  SystemConfig,
+  SystemConfigDocument,
+} from 'src/modules/system-config/schemas/system-config.schema';
 
 @Injectable()
 export class MpesaService {
@@ -27,9 +30,8 @@ export class MpesaService {
   private readonly consumerSecret: string;
   private readonly shortCode: string;
   private readonly initiatorName: string;
-  private readonly initiatorPassword: string;
-  private readonly passKey: string;
   private readonly MPESA_CALLBACK_URL: string;
+  private readonly MPESA_BALANCE_CALLBACK_URL: string;
   private readonly MPESA_STATIC_PASSWORD: string;
   private readonly MPESA_STATIC_TIMESTAMP: string;
   private readonly MPESA_SECURITY_CREDENTIAL: string;
@@ -43,7 +45,6 @@ export class MpesaService {
     private advanceModel: Model<AdvanceDocument>,
     @InjectModel(SystemConfig.name)
     private systemConfigModel: Model<SystemConfigDocument>,
-    private walletTransactionService: WalletTransactionService,
     private notificationService: NotificationService,
     private configService: ConfigService,
   ) {
@@ -54,10 +55,6 @@ export class MpesaService {
     );
     this.shortCode = this.configService.get<string>('MPESA_SHORTCODE');
     this.initiatorName = this.configService.get<string>('MPESA_INITIATOR_NAME');
-    this.initiatorPassword = this.configService.get<string>(
-      'MPESA_INITIATOR_PASSWORD',
-    );
-    this.passKey = this.configService.get<string>('MPESA_PASS_KEY');
     this.MPESA_CALLBACK_URL =
       this.configService.get<string>('MPESA_CALLBACK_URL');
     this.MPESA_STATIC_PASSWORD = this.configService.get<string>(
@@ -409,14 +406,20 @@ export class MpesaService {
       ) as string;
 
       if (!receiverPartyPublicName) {
-        this.logger.error('ReceiverPartyPublicName is undefined in B2C callback');
+        this.logger.error(
+          'ReceiverPartyPublicName is undefined in B2C callback',
+        );
         throw new Error('Missing ReceiverPartyPublicName in callback data');
       }
 
       const phoneNumber = receiverPartyPublicName.split(' ')[0];
       if (!phoneNumber) {
-        this.logger.error('Failed to extract phone number from ReceiverPartyPublicName');
-        throw new Error('Invalid phone number format in ReceiverPartyPublicName');
+        this.logger.error(
+          'Failed to extract phone number from ReceiverPartyPublicName',
+        );
+        throw new Error(
+          'Invalid phone number format in ReceiverPartyPublicName',
+        );
       }
 
       // Find existing transaction by originatorConversationId
@@ -472,16 +475,25 @@ export class MpesaService {
       );
 
       // Check balance threshold and notify admins if necessary
-      const b2cUtilityAccountFunds = Number(resultParamsMap.get('B2CUtilityAccountAvailableFunds'));
-      const systemConfig = await this.systemConfigModel.findOne({ key: 'notification_config', type: 'notification' });
+      const b2cUtilityAccountFunds = Number(
+        resultParamsMap.get('B2CUtilityAccountAvailableFunds'),
+      );
+      const systemConfig = await this.systemConfigModel.findOne({
+        key: 'notification_config',
+        type: 'notification',
+      });
       // console.log('system config', systemConfig)
       // console.log('b2cUtilityAccountFunds', b2cUtilityAccountFunds)
       // console.log('balanceThreshold', systemConfig?.data?.balanceThreshold)
 
-      if (systemConfig?.data?.balanceThreshold && b2cUtilityAccountFunds <= systemConfig.data.balanceThreshold) {
-        const balanceAlertAdmins = systemConfig.data.notificationAdmins?.filter(admin =>
-          admin.notificationTypes.includes('balance_alert')
-        ) || [];
+      if (
+        systemConfig?.data?.balanceThreshold &&
+        b2cUtilityAccountFunds <= systemConfig.data.balanceThreshold
+      ) {
+        const balanceAlertAdmins =
+          systemConfig.data.notificationAdmins?.filter((admin) =>
+            admin.notificationTypes.includes('balance_alert'),
+          ) || [];
 
         const alertMessage = `⚠️ LOW BALANCE ALERT: M-Pesa utility account balance (KES ${b2cUtilityAccountFunds}) has fallen below the threshold of KES ${systemConfig.data.balanceThreshold}. Please top up to ensure uninterrupted service.`;
 
@@ -494,7 +506,7 @@ export class MpesaService {
             await this.notificationService.sendEmail(
               admin.email,
               'M-Pesa Account Low Balance Alert',
-              alertMessage
+              alertMessage,
             );
           }
         }
@@ -625,7 +637,7 @@ export class MpesaService {
     endDate?: string,
   ) {
     try {
-      const query: any = { employee: new Types.ObjectId(employeeId) };
+      const query: any = { employee: employeeId };
 
       if (status) {
         query.status = status;
@@ -635,17 +647,14 @@ export class MpesaService {
         query.transactionType = transactionType;
       }
 
-      if (startDate || endDate) {
-        query.createdAt = {};
-        if (startDate) {
-          query.createdAt.$gte = new Date(startDate);
-        }
-        if (endDate) {
-          query.createdAt.$lte = new Date(endDate);
-        }
+      if (startDate && endDate) {
+        query.createdAt = {
+          $gte: new Date(startDate),
+          $lte: new Date(endDate),
+        };
       }
 
-      return this.mpesaModel.find(query).sort({ createdAt: -1 }).exec();
+      return this.mpesaModel.find(query).sort({ createdAt: -1 });
     } catch (error) {
       this.logger.error('Error fetching transactions:', error);
       throw error;
@@ -669,7 +678,7 @@ export class MpesaService {
     }
   }
 
-  async checkAccountBalance(employeeId: string) {
+  async checkAccountBalance() {
     try {
       const accessToken = await this.getAccessToken();
 
@@ -677,13 +686,13 @@ export class MpesaService {
         `${this.baseUrl}/mpesa/accountbalance/v1/query`,
         {
           Initiator: this.initiatorName,
-          SecurityCredential: this.initiatorPassword,
+          SecurityCredential: this.MPESA_SECURITY_CREDENTIAL,
           CommandID: 'AccountBalance',
           PartyA: this.shortCode,
-          IdentifierType: '4', // Organization's shortcode
+          IdentifierType: '4', // 4 for paybill 2 for till
           Remarks: 'Account Balance Query',
-          QueueTimeOutURL: `${this.configService.get('APP_URL')}/mpesa/timeout`,
-          ResultURL: `${this.configService.get('APP_URL')}/mpesa/callback`,
+          QueueTimeOutURL: this.MPESA_BALANCE_CALLBACK_URL,
+          ResultURL: this.MPESA_BALANCE_CALLBACK_URL,
         },
         {
           headers: {
@@ -691,19 +700,100 @@ export class MpesaService {
           },
         },
       );
-
-      // Create a record for the balance query with ObjectId
-      await this.mpesaModel.create({
-        employee: new Types.ObjectId(employeeId),
-        transactionType: 'balance_query',
-        status: 'pending',
-        conversationId: response.data.ConversationID,
-        originatorConversationId: response.data.OriginatorConversationID,
-      });
+      this.logger.log('Balance query successful');
 
       return response.data;
     } catch (error) {
       this.logger.error('Error checking account balance:', error);
+      throw error;
+    }
+  }
+
+  async handleBalanceCallback(callbackData: any) {
+    try {
+      this.logger.log('Processing balance callback:', callbackData);
+      const result = callbackData.Result;
+
+      if (!result || result.ResultCode !== 0) {
+        throw new Error(
+          'Balance query failed: ' + (result?.ResultDesc || 'Unknown error'),
+        );
+      }
+
+      // Extract ResultParameters
+      const resultParameters = result.ResultParameters.ResultParameter;
+      const accountBalanceParam = resultParameters.find(
+        (param: any) => param.Key === 'AccountBalance',
+      );
+
+      if (!accountBalanceParam) {
+        throw new Error('No account balance information in callback');
+      }
+
+      // Parse account balances
+      const accountBalances = accountBalanceParam.Value.split('&').reduce(
+        (acc: any, account: string) => {
+          const [accountName, currency, balance] = account.split('|');
+          const key = accountName
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, '')
+            .replace(/account$/, '');
+
+          acc[key] = {
+            balance: parseFloat(balance),
+            currency,
+            lastUpdated: new Date(),
+          };
+          return acc;
+        },
+        {},
+      );
+      console.log('accountBalances', accountBalances);
+      // Update system config with new balances
+      await this.systemConfigModel.findOneAndUpdate(
+        { key: 'mpesa_config', type: 'mpesa' },
+        {
+          $set: {
+            'data.accountBalances': accountBalances,
+          },
+        },
+        { upsert: true },
+      );
+
+      return {
+        success: true,
+        message: 'Balance updated successfully',
+        data: accountBalances,
+      };
+    } catch (error) {
+      this.logger.error('Error processing balance callback:', error);
+      throw error;
+    }
+  }
+
+  async getCurrentBalance() {
+    try {
+      const config = await this.systemConfigModel.findOne({
+        key: 'mpesa_config',
+        type: 'mpesa',
+      });
+
+      if (!config?.data?.accountBalances) {
+        return {
+          success: false,
+          message: 'No balance information available',
+          data: null,
+        };
+      }
+
+      return {
+        success: true,
+        message: 'Balance retrieved successfully',
+        data: config.data.accountBalances,
+      };
+    } catch (error) {
+      this.logger.error('Error retrieving current balance:', error);
       throw error;
     }
   }

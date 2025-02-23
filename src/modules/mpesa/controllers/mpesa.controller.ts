@@ -33,7 +33,7 @@ import { HttpException } from '@nestjs/common';
 export class MpesaController {
   private readonly logger = new Logger(MpesaController.name);
 
-  constructor(private readonly mpesaService: MpesaService) { }
+  constructor(private readonly mpesaService: MpesaService) {}
 
   @Post('initiate-c2b')
   @ApiExcludeEndpoint()
@@ -159,9 +159,82 @@ export class MpesaController {
   }
 
   @Get('balance')
-  @ApiExcludeEndpoint()
   @ApiOperation({ summary: 'Check Mpesa account balance' })
-  async checkBalance(@Request() req) {
-    return this.mpesaService.checkAccountBalance(req.user.id);
+  async checkBalance() {
+    return this.mpesaService.checkAccountBalance();
+  }
+
+  @Public()
+  @Post('balance/callback')
+  // @ApiExcludeEndpoint()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Mpesa balance callback endpoint',
+    description: 'Handles callbacks from Mpesa for account balance queries',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Balance callback processed successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'Balance updated successfully',
+        data: {
+          working: {
+            balance: 1000.0,
+            currency: 'KES',
+            lastUpdated: '2025-02-23T16:33:17.000Z',
+          },
+          utility: {
+            balance: 1246.5,
+            currency: 'KES',
+            lastUpdated: '2025-02-23T16:33:17.000Z',
+          },
+        },
+      },
+    },
+  })
+  async handleBalanceCallback(@Body() callbackData: any) {
+    try {
+      this.logger.log('Received balance callback data:', callbackData);
+      return await this.mpesaService.handleBalanceCallback(callbackData);
+    } catch (error) {
+      this.logger.error('Balance callback processing error:', error);
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Failed to process balance callback',
+        },
+        HttpStatus.BAD_REQUEST,
+      );
+    }
+  }
+
+  @Get('balance/current')
+  @ApiOperation({ summary: 'Get current Mpesa account balances' })
+  @ApiResponse({
+    status: 200,
+    description: 'Current balance retrieved successfully',
+    schema: {
+      example: {
+        success: true,
+        message: 'Balance retrieved successfully',
+        data: {
+          working: {
+            balance: 1000.0,
+            currency: 'KES',
+            lastUpdated: '2025-02-23T16:33:17.000Z',
+          },
+          utility: {
+            balance: 1246.5,
+            currency: 'KES',
+            lastUpdated: '2025-02-23T16:33:17.000Z',
+          },
+        },
+      },
+    },
+  })
+  async getCurrentBalance() {
+    return this.mpesaService.getCurrentBalance();
   }
 }
