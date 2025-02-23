@@ -272,7 +272,7 @@ export class MpesaService {
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
     } finally {
-      this.checkAccountBalance();
+      await this.checkAccountBalance();
     }
   }
 
@@ -500,18 +500,18 @@ export class MpesaService {
         const alertMessage = `⚠️ LOW BALANCE ALERT: M-Pesa utility account balance (KES ${b2cUtilityAccountFunds}) has fallen below the threshold of KES ${systemConfig.data.balanceThreshold}. Please top up to ensure uninterrupted service.`;
 
         // Send notifications to all balance alert admins
-        for (const admin of balanceAlertAdmins) {
-          if (systemConfig.data.enableSMSNotifications && admin.phone) {
-            await this.notificationService.sendSMS(admin.phone, alertMessage);
-          }
-          if (systemConfig.data.enableEmailNotifications && admin.email) {
-            await this.notificationService.sendEmail(
-              admin.email,
-              'M-Pesa Account Low Balance Alert',
-              alertMessage,
-            );
-          }
-        }
+        // for (const admin of balanceAlertAdmins) {
+        //   if (systemConfig.data.enableSMSNotifications && admin.phone) {
+        //     await this.notificationService.sendSMS(admin.phone, alertMessage);
+        //   }
+        //   if (systemConfig.data.enableEmailNotifications && admin.email) {
+        //     await this.notificationService.sendEmail(
+        //       admin.email,
+        //       'M-Pesa Account Low Balance Alert',
+        //       alertMessage,
+        //     );
+        //   }
+        // }
       }
 
       return {
