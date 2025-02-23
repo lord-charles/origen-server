@@ -683,31 +683,49 @@ export class MpesaService {
   async checkAccountBalance() {
     try {
       const accessToken = await this.getAccessToken();
+      
+      this.logger.log('Making balance query request with token:', accessToken);
+
+      const requestData = {
+        Initiator: this.initiatorName,
+        SecurityCredential: this.MPESA_SECURITY_CREDENTIAL,
+        CommandID: 'AccountBalance',
+        PartyA: this.shortCode,
+        IdentifierType: '4',
+        Remarks: 'Balance check query',
+        QueueTimeOutURL: this.MPESA_BALANCE_CALLBACK_URL,
+        ResultURL: this.MPESA_BALANCE_CALLBACK_URL
+      };
+
+      this.logger.log('Balance query request data:', requestData);
 
       const response = await axios.post(
         `${this.baseUrl}/mpesa/accountbalance/v1/query`,
-        {
-          Initiator: this.initiatorName,
-          SecurityCredential: this.MPESA_SECURITY_CREDENTIAL,
-          CommandID: 'AccountBalance',
-          PartyA: this.shortCode,
-          IdentifierType: '4', // 4 for paybill 2 for till
-          Remarks: 'Account Balance Query',
-          QueueTimeOutURL: this.MPESA_BALANCE_CALLBACK_URL,
-          ResultURL: this.MPESA_BALANCE_CALLBACK_URL,
-        },
+        requestData,
         {
           headers: {
+            'Content-Type': 'application/json',
             Authorization: `Bearer ${accessToken}`,
           },
         },
       );
-      this.logger.log('Balance query successful');
 
-      return response.data;
+      this.logger.log('Balance query response:', response.data);
+      return {
+        success: true,
+        message: 'Balance query initiated successfully',
+        data: response.data
+      };
     } catch (error) {
-      this.logger.error('Error checking account balance:', error);
-      throw error;
+      this.logger.error('Error checking account balance:', error.response?.data || error.message);
+      throw new HttpException(
+        {
+          success: false,
+          message: 'Failed to check account balance',
+          error: error.response?.data || error.message
+        },
+        HttpStatus.BAD_REQUEST
+      );
     }
   }
 
