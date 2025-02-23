@@ -166,7 +166,7 @@ export class MpesaController {
 
   @Public()
   @Post('balance/callback')
-  // @ApiExcludeEndpoint()
+  @ApiExcludeEndpoint()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Mpesa balance callback endpoint',
@@ -195,19 +195,7 @@ export class MpesaController {
     },
   })
   async handleBalanceCallback(@Body() callbackData: any) {
-    try {
-      this.logger.log('Received balance callback data:', callbackData);
-      return await this.mpesaService.handleBalanceCallback(callbackData);
-    } catch (error) {
-      this.logger.error('Balance callback processing error:', error);
-      throw new HttpException(
-        {
-          success: false,
-          message: error.message || 'Failed to process balance callback',
-        },
-        HttpStatus.BAD_REQUEST,
-      );
-    }
+    return this.mpesaService.handleBalanceCallback(callbackData);
   }
 
   @Get('balance/current')

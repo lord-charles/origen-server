@@ -271,6 +271,8 @@ export class MpesaService {
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
       );
+    } finally {
+      this.checkAccountBalance();
     }
   }
 
@@ -711,7 +713,6 @@ export class MpesaService {
 
   async handleBalanceCallback(callbackData: any) {
     try {
-      this.logger.log('Processing balance callback:', callbackData);
       const result = callbackData.Result;
 
       if (!result || result.ResultCode !== 0) {
@@ -749,7 +750,7 @@ export class MpesaService {
         },
         {},
       );
-      console.log('accountBalances', accountBalances);
+      this.logger.log('accountBalances', accountBalances);
       // Update system config with new balances
       await this.systemConfigModel.findOneAndUpdate(
         { key: 'mpesa_config', type: 'mpesa' },
