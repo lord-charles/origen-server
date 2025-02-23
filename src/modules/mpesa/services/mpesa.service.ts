@@ -683,7 +683,7 @@ export class MpesaService {
   async checkAccountBalance() {
     try {
       const accessToken = await this.getAccessToken();
-      
+
       this.logger.log('Making balance query request with token:', accessToken);
 
       const requestData = {
@@ -693,8 +693,8 @@ export class MpesaService {
         PartyA: this.shortCode,
         IdentifierType: '4',
         Remarks: 'Balance check query',
-        QueueTimeOutURL: this.MPESA_BALANCE_CALLBACK_URL,
-        ResultURL: this.MPESA_BALANCE_CALLBACK_URL
+        // QueueTimeOutURL: this.MPESA_BALANCE_CALLBACK_URL,
+        ResultURL: this.MPESA_BALANCE_CALLBACK_URL,
       };
 
       this.logger.log('Balance query request data:', requestData);
@@ -714,17 +714,20 @@ export class MpesaService {
       return {
         success: true,
         message: 'Balance query initiated successfully',
-        data: response.data
+        data: response.data,
       };
     } catch (error) {
-      this.logger.error('Error checking account balance:', error.response?.data || error.message);
+      this.logger.error(
+        'Error checking account balance:',
+        error.response?.data || error.message,
+      );
       throw new HttpException(
         {
           success: false,
           message: 'Failed to check account balance',
-          error: error.response?.data || error.message
+          error: error.response?.data || error.message,
         },
-        HttpStatus.BAD_REQUEST
+        HttpStatus.BAD_REQUEST,
       );
     }
   }
