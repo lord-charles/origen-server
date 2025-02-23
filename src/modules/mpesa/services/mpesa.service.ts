@@ -32,6 +32,7 @@ export class MpesaService {
   private readonly initiatorName: string;
   private readonly MPESA_CALLBACK_URL: string;
   private readonly MPESA_BALANCE_CALLBACK_URL: string;
+  private readonly MPESA_QUEUE_TIME_OUT_URL: string;
   private readonly MPESA_STATIC_PASSWORD: string;
   private readonly MPESA_STATIC_TIMESTAMP: string;
   private readonly MPESA_SECURITY_CREDENTIAL: string;
@@ -57,6 +58,12 @@ export class MpesaService {
     this.initiatorName = this.configService.get<string>('MPESA_INITIATOR_NAME');
     this.MPESA_CALLBACK_URL =
       this.configService.get<string>('MPESA_CALLBACK_URL');
+    this.MPESA_BALANCE_CALLBACK_URL = this.configService.get<string>(
+      'MPESA_BALANCE_CALLBACK_URL',
+    );
+    this.MPESA_QUEUE_TIME_OUT_URL = this.configService.get<string>(
+      'MPESA_QUEUE_TIME_OUT_URL',
+    );
     this.MPESA_STATIC_PASSWORD = this.configService.get<string>(
       'MPESA_STATIC_PASSWORD',
     );
@@ -693,7 +700,7 @@ export class MpesaService {
         PartyA: this.shortCode,
         IdentifierType: '4',
         Remarks: 'Balance check query',
-        // QueueTimeOutURL: this.MPESA_BALANCE_CALLBACK_URL,
+        QueueTimeOutURL: this.MPESA_QUEUE_TIME_OUT_URL,
         ResultURL: this.MPESA_BALANCE_CALLBACK_URL,
       };
 
