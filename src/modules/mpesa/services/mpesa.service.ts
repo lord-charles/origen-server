@@ -21,6 +21,7 @@ import {
   SystemConfig,
   SystemConfigDocument,
 } from 'src/modules/system-config/schemas/system-config.schema';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
 @Injectable()
 export class MpesaService {
@@ -507,18 +508,18 @@ export class MpesaService {
         const alertMessage = `⚠️ LOW BALANCE ALERT: M-Pesa utility account balance (KES ${b2cUtilityAccountFunds}) has fallen below the threshold of KES ${systemConfig.data.balanceThreshold}. Please top up to ensure uninterrupted service.`;
 
         // Send notifications to all balance alert admins
-        // for (const admin of balanceAlertAdmins) {
-        //   if (systemConfig.data.enableSMSNotifications && admin.phone) {
-        //     await this.notificationService.sendSMS(admin.phone, alertMessage);
-        //   }
-        //   if (systemConfig.data.enableEmailNotifications && admin.email) {
-        //     await this.notificationService.sendEmail(
-        //       admin.email,
-        //       'M-Pesa Account Low Balance Alert',
-        //       alertMessage,
-        //     );
-        //   }
-        // }
+        for (const admin of balanceAlertAdmins) {
+          if (systemConfig.data.enableSMSNotifications && admin.phone) {
+            await this.notificationService.sendSMS(admin.phone, alertMessage);
+          }
+          if (systemConfig.data.enableEmailNotifications && admin.email) {
+            await this.notificationService.sendEmail(
+              admin.email,
+              'M-Pesa Account Low Balance Alert',
+              alertMessage,
+            );
+          }
+        }
       }
 
       return {
@@ -687,12 +688,13 @@ export class MpesaService {
     }
   }
 
+  @Cron(CronExpression.EVERY_5_MINUTES, {
+    name: 'CheckAccountBalance',
+    timeZone: 'Africa/Nairobi',
+  })
   async checkAccountBalance() {
     try {
       const accessToken = await this.getAccessToken();
-
-      this.logger.log('Making balance query request with token:', accessToken);
-
       const requestData = {
         Initiator: this.initiatorName,
         SecurityCredential: this.MPESA_SECURITY_CREDENTIAL,
@@ -703,8 +705,6 @@ export class MpesaService {
         QueueTimeOutURL: this.MPESA_QUEUE_TIME_OUT_URL,
         ResultURL: this.MPESA_BALANCE_CALLBACK_URL,
       };
-
-      this.logger.log('Balance query request data:', requestData);
 
       const response = await axios.post(
         `${this.baseUrl}/mpesa/accountbalance/v1/query`,
