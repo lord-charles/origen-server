@@ -215,7 +215,7 @@ export class MpesaService {
         .replace(/[^0-9]/g, '')
         .slice(0, 12);
 
-      await axios.post(
+      const response = await axios.post(
         `${this.baseUrl}/mpesa/b2c/v1/paymentrequest`,
         {
           InitiatorName: this.initiatorName,
@@ -237,6 +237,8 @@ export class MpesaService {
           },
         },
       );
+
+      this.logger.log('B2C payment initiation response:', response.data);
 
       // For B2C, always use the user ID found by phone number
       const transaction = await this.mpesaModel.create({
@@ -385,11 +387,6 @@ export class MpesaService {
   }
 
   private async handleB2CCallback(callbackData: any) {
-    console.log(
-      'Received B2C callback data:',
-      JSON.stringify(callbackData, null, 2),
-    );
-
     const {
       Result: {
         ResultCode,
@@ -400,7 +397,7 @@ export class MpesaService {
         ResultParameters,
       },
     } = callbackData;
-
+    this.logger.log('B2C callback data:', callbackData);
     try {
       // Create a map of result parameters
       const resultParamsMap = new Map(
@@ -437,6 +434,7 @@ export class MpesaService {
         $or: [
           { originatorConversationId: OriginatorConversationID },
           { phoneNumber: { $in: [phoneNumber, `254${phoneNumber.slice(1)}`] } },
+          // { amount: resultParamsMap.get('TransactionAmount') },
         ],
         transactionType: 'b2c',
         status: 'pending',
