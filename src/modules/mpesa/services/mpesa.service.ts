@@ -238,8 +238,6 @@ export class MpesaService {
         },
       );
 
-      this.logger.log('B2C payment initiation response:', response.data);
-
       // For B2C, always use the user ID found by phone number
       const transaction = await this.mpesaModel.create({
         employee: user._id,
@@ -251,7 +249,6 @@ export class MpesaService {
         conversationId: response.data.ConversationID,
         originatorConversationId: response.data.OriginatorConversationID,
       });
-      this.logger.log('B2C payment created:', transaction);
 
       return {
         success: true,
@@ -399,11 +396,6 @@ export class MpesaService {
       },
     } = callbackData;
     // this.logger.log('B2C callback data:', callbackData);
-    this.logger.log(
-      'B2C callback data OriginatorConversationID, ConversationID:',
-      OriginatorConversationID,
-      ConversationID,
-    );
 
     try {
       // Create a map of result parameters
@@ -412,11 +404,6 @@ export class MpesaService {
           param.Key,
           param.Value,
         ]) || [],
-      );
-      this.logger.log('Result parameters map:', resultParamsMap);
-      this.logger.log(
-        'Result parameters TransactionAmount:',
-        resultParamsMap.get('TransactionAmount'),
       );
 
       // Extract phone number from ReceiverPartyPublicName
@@ -450,7 +437,6 @@ export class MpesaService {
         transactionType: 'b2c',
         status: 'pending',
       });
-      this.logger.warn('Existing transaction:', existingTransaction);
 
       if (!existingTransaction) {
         throw new Error(
@@ -518,18 +504,18 @@ export class MpesaService {
         const alertMessage = `⚠️ LOW BALANCE ALERT: M-Pesa utility account balance (KES ${b2cUtilityAccountFunds}) has fallen below the threshold of KES ${systemConfig.data.balanceThreshold}. Please top up to ensure uninterrupted service.`;
 
         // Send notifications to all balance alert admins
-        // for (const admin of balanceAlertAdmins) {
-        //   if (systemConfig.data.enableSMSNotifications && admin.phone) {
-        //     await this.notificationService.sendSMS(admin.phone, alertMessage);
-        //   }
-        //   if (systemConfig.data.enableEmailNotifications && admin.email) {
-        //     await this.notificationService.sendEmail(
-        //       admin.email,
-        //       'M-Pesa Account Low Balance Alert',
-        //       alertMessage,
-        //     );
-        //   }
-        // }
+        for (const admin of balanceAlertAdmins) {
+          if (systemConfig.data.enableSMSNotifications && admin.phone) {
+            await this.notificationService.sendSMS(admin.phone, alertMessage);
+          }
+          if (systemConfig.data.enableEmailNotifications && admin.email) {
+            await this.notificationService.sendEmail(
+              admin.email,
+              'M-Pesa Account Low Balance Alert',
+              alertMessage,
+            );
+          }
+        }
       }
 
       return {
