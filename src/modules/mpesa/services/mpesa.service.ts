@@ -11,7 +11,6 @@ import { InitiateB2CDto, InitiateC2BDto } from '../dtos/mpesa.dto';
 import { User, UserDocument } from 'src/modules/auth/schemas/user.schema';
 import { HttpException, HttpStatus } from '@nestjs/common';
 import { Types } from 'mongoose';
-import { WalletTransactionService } from 'src/modules/wallet/services/wallet-transaction.service';
 import { NotificationService } from 'src/modules/notifications/services/notification.service';
 import {
   Advance,
