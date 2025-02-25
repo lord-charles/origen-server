@@ -653,7 +653,7 @@ export class MpesaService {
     endDate?: string,
   ) {
     try {
-      const query: any = { employee: employeeId };
+      const query: any = {};
 
       if (status) {
         query.status = status;
