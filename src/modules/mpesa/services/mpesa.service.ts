@@ -248,8 +248,8 @@ export class MpesaService {
         phoneNumber: dto.phoneNumber,
         status: 'pending',
         callbackStatus: 'pending',
-        ConversationID: response.data.ConversationID,
-        OriginatorConversationID: response.data.OriginatorConversationID,
+        conversationId: response.data.ConversationID,
+        originatorConversationId: response.data.OriginatorConversationID,
       });
       this.logger.log('B2C payment created:', transaction);
 
@@ -288,10 +288,10 @@ export class MpesaService {
   }
 
   async handleCallback(callbackData: any) {
-    this.logger.debug(
-      'Received callback data:',
-      JSON.stringify(callbackData, null, 2),
-    );
+    // this.logger.debug(
+    //   'Received callback data:',
+    //   JSON.stringify(callbackData, null, 2),
+    // );
 
     // Handle C2B callback
     if (callbackData.Body?.stkCallback) {
@@ -443,14 +443,14 @@ export class MpesaService {
 
       // Find existing transaction by originatorConversationId
       const existingTransaction = await this.mpesaModel.findOne({
-        $or: [
-          { originatorConversationId: OriginatorConversationID },
-          { phoneNumber: { $in: [phoneNumber, `254${phoneNumber.slice(1)}`] } },
-          // { amount: resultParamsMap.get('TransactionAmount') },
-        ],
+        originatorConversationId: OriginatorConversationID,
+        conversationId: ConversationID,
+        phoneNumber: { $in: [phoneNumber, `254${phoneNumber.slice(1)}`] },
+        amount: resultParamsMap.get('TransactionAmount'),
         transactionType: 'b2c',
         status: 'pending',
       });
+      this.logger.warn('Existing transaction:', existingTransaction);
 
       if (!existingTransaction) {
         throw new Error(
@@ -787,7 +787,7 @@ export class MpesaService {
         },
         {},
       );
-      this.logger.log('accountBalances', accountBalances);
+      // this.logger.log('accountBalances', accountBalances);
       // Update system config with new balances
       await this.systemConfigModel.findOneAndUpdate(
         { key: 'mpesa_config', type: 'mpesa' },
