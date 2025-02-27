@@ -121,6 +121,14 @@ export class CreateUserDto {
   email?: string;
 
   @ApiProperty({
+    description: 'Payroll Number',
+    example: 'P123456',
+  })
+  @IsNotEmpty()
+  @IsString()
+  payrollNumber: string;
+
+  @ApiProperty({
     description: 'Phone number for Mpesa transactions',
     example: '254712345678',
   })

@@ -131,6 +131,7 @@ export class MpesaController {
   }
 
   @Get('transactions')
+  @ApiExcludeEndpoint()
   @ApiOperation({ summary: 'Get Mpesa transactions' })
   @ApiQuery({ name: 'status', required: false })
   @ApiQuery({ name: 'transactionType', required: false })
@@ -200,6 +201,7 @@ export class MpesaController {
   }
 
   @Get('balance/current')
+  @ApiExcludeEndpoint()
   @ApiOperation({ summary: 'Get current Mpesa account balances' })
   @ApiResponse({
     status: 200,

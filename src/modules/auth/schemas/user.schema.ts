@@ -89,6 +89,13 @@ export class User {
   @Prop({ required: true, unique: true })
   nationalId: string;
 
+  @ApiProperty({
+    description: 'Payroll Number',
+    example: 'P123456',
+  })
+  @Prop({ required: true, unique: true })
+  payrollNumber: string;
+
   @ApiProperty({ description: '4-digit authentication PIN', example: '1234' })
   @Prop({ required: true })
   pin: string;
