@@ -93,8 +93,8 @@ export class User {
     description: 'Payroll Number',
     example: 'P123456',
   })
-  @Prop({ required: true, unique: true })
-  payrollNumber: string;
+  @Prop({ required: false })
+  payrollNumber?: string;
 
   @ApiProperty({ description: '4-digit authentication PIN', example: '1234' })
   @Prop({ required: true })

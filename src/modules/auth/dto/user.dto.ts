@@ -124,9 +124,9 @@ export class CreateUserDto {
     description: 'Payroll Number',
     example: 'P123456',
   })
-  @IsNotEmpty()
+  @IsOptional()
   @IsString()
-  payrollNumber: string;
+  payrollNumber?: string;
 
   @ApiProperty({
     description: 'Phone number for Mpesa transactions',
@@ -180,7 +180,7 @@ export class CreateUserDto {
 
   @ApiProperty({
     description: 'Date of birth of the employee',
-    example: '',
+    example: '2001-01-01',
   })
   @IsOptional()
   @IsDateString()
