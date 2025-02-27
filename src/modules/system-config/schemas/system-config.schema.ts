@@ -74,27 +74,27 @@ export class SystemConfig {
     initiatorName?: string;
     securityCredential?: string;
     accountBalances?: {
-      workingAccount?: {
+      working?: {
         balance: number;
         currency: string;
         lastUpdated: Date;
       };
-      utilityAccount?: {
+      utility?: {
         balance: number;
         currency: string;
         lastUpdated: Date;
       };
-      chargesPaidAccount?: {
+      chargespaid?: {
         balance: number;
         currency: string;
         lastUpdated: Date;
       };
-      merchantAccount?: {
+      merchant?: {
         balance: number;
         currency: string;
         lastUpdated: Date;
       };
-      organizationSettlementAccount?: {
+      organizationsettlement?: {
         balance: number;
         currency: string;
         lastUpdated: Date;
@@ -106,12 +106,14 @@ export class SystemConfig {
       name: string;
       email: string;
       phone: string;
-      notificationTypes: Array<'balance_alert' | 'monthly_report' | 'advance_alert'>;
+      notificationTypes: Array<
+        'balance_alert' | 'monthly_report' | 'advance_alert'
+      >;
       notes?: string;
     }>;
     balanceThreshold?: number;
     reportFormat?: 'excel' | 'pdf' | 'csv';
-    reportGenerationDay?: number; 
+    reportGenerationDay?: number;
     enableEmailNotifications?: boolean;
     enableSMSNotifications?: boolean;
   };

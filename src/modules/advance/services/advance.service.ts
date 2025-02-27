@@ -23,12 +23,7 @@ import { PaymentMethod } from '../enums/payment-method.enum';
 import { SystemLogsService } from '../../system-logs/services/system-logs.service';
 import { LogSeverity } from '../../system-logs/schemas/system-log.schema';
 import { Request } from 'express';
-import {
-  startOfMonth,
-  endOfMonth,
-  subMonths,
-  isWithinInterval,
-} from 'date-fns';
+import { startOfMonth, endOfMonth, isWithinInterval, format } from 'date-fns';
 import { NotificationService } from '../../notifications/services/notification.service';
 
 @Injectable()
@@ -134,10 +129,11 @@ export class AdvanceService {
     });
 
     if (activeSuspensionPeriod) {
+      const endDate = new Date(activeSuspensionPeriod.endDate);
+      const humanFriendlyDate = format(endDate, 'MMMM d, yyyy');
+
       throw new BadRequestException(
-        `Advance applications are currently suspended until ${new Date(
-          activeSuspensionPeriod.endDate,
-        ).toLocaleDateString()}.`,
+        `Advance applications are currently suspended until ${humanFriendlyDate}.`,
       );
     }
 

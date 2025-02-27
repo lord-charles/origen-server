@@ -187,6 +187,25 @@ export class MpesaService {
         ? '+254' + dto.phoneNumber.slice(1)
         : dto.phoneNumber;
 
+      //check utility balance
+      const config = await this.systemConfigModel.findOne({
+        key: 'mpesa_config',
+        type: 'mpesa',
+      });
+      console.log(config?.data?.accountBalances);
+      if (dto.amount > config?.data?.accountBalances?.utility?.balance) {
+        throw new HttpException(
+          {
+            success: false,
+            status: HttpStatus.BAD_REQUEST,
+            message: 'Withdrawals are temporarily disabled, try again later.',
+            error: 'Withdrawal limit exceeded',
+            details: 'The amount exceeds the available balance.',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
       // For B2C, always try to find user by phone number
       const user = await this.employeeModel.findOne({
         phoneNumber: formattedPhoneNumber,
