@@ -639,6 +639,8 @@ export class MpesaService {
             amount: callbackData.TransAmount,
             status: 'completed',
             callbackStatus: 'processed',
+            phoneNumber:"",
+            employee:""
           });
           return console.log(transaction);
           // throw new Error('Invalid BillRefNumber format');
