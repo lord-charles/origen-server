@@ -22,7 +22,7 @@ export class MpesaTransaction {
     description: 'ID of the employee associated with the transaction',
     example: '64abc123def4567890ghijk0',
   })
-  @Prop({ type: Types.ObjectId, ref: 'Employee', required: true })
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
   employee: Types.ObjectId;
 
   @ApiProperty({

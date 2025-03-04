@@ -12,6 +12,8 @@ import { WalletModule } from 'src/modules/wallet/wallet.module';
 import { NotificationsModule } from 'src/modules/notifications/notifications.module';
 import { Advance, AdvanceSchema } from 'src/modules/advance/schemas/advance.schema';
 import { SystemConfig, SystemConfigSchema } from 'src/modules/system-config/schemas/system-config.schema';
+import { MpesaAuditService } from './services/mpesa-audit.service';
+import { MpesaAuditController } from './controllers/mpesa-audit.controller';
 
 @Module({
   imports: [
@@ -25,8 +27,8 @@ import { SystemConfig, SystemConfigSchema } from 'src/modules/system-config/sche
     forwardRef(() => WalletModule),
     NotificationsModule,
   ],
-  controllers: [MpesaController],
-  providers: [MpesaService],
+  controllers: [MpesaController, MpesaAuditController],
+  providers: [MpesaService, MpesaAuditService],
   exports: [MpesaService],
 })
 export class MpesaModule {}

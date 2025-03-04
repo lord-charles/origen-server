@@ -633,7 +633,8 @@ export class MpesaService {
         // Handle wallet recharge (existing logic)
         const userId = BillRefNumber.split(':')[1];
         if (!userId) {
-          throw new Error('Invalid BillRefNumber format');
+          console.log("paybill callbackData", callbackData)
+          // throw new Error('Invalid BillRefNumber format');
         }
 
         // Find the user

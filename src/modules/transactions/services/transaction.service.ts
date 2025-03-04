@@ -68,7 +68,6 @@ export class TransactionService {
             .exec(),
         ]);
 
-      // Transform transactions to a common format
       const transformedTransactions = [
         // Transform MPESA transactions
         ...mpesaTransactions.map((transaction) => ({
@@ -164,23 +163,7 @@ export class TransactionService {
     return null;
   }
 
-  private determineTransactionReason(transaction: any): string {
-    // For loans, use the purpose field
-    if (transaction.purpose) {
-      return transaction.purpose;
-    }
-
-    // For wallet transactions, use the description
-    if (transaction.description) {
-      return transaction.description;
-    }
-
-    // For M-Pesa transactions, use the account reference
-    if (transaction.accountReference) {
-      return transaction.accountReference;
-    }
-
-    // For transactions without a specific reason
-    return transaction.transactionType || 'Unknown';
-  }
 }
+
+
+
