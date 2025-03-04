@@ -325,7 +325,8 @@ export class MpesaService {
     ) {
       return this.handlePayBillCallback(callbackData);
     } else {
-      throw new Error('Unknown callback type');
+      console.log('Bank callbackData', callbackData);
+      // throw new Error('Unknown callback type');
     }
   }
 
