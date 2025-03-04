@@ -28,12 +28,12 @@ export class MpesaTransaction {
   @ApiProperty({
     description: 'Type of transaction',
     example: 'paybill',
-    enum: ['paybill', 'b2c'],
+    enum: ['paybill', 'b2c', 'recharge'],
   })
   @Prop({
     type: String,
     required: true,
-    enum: ['paybill', 'b2c'],
+    enum: ['paybill', 'b2c', 'recharge'],
   })
   transactionType: string;
 

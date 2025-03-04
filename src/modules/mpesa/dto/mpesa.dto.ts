@@ -23,6 +23,7 @@ export enum TransactionType {
   WITHDRAW = 'withdraw',
   DEPOSIT = 'deposit',
   BUY_AIRTIME = 'buy_airtime',
+  RECHARGE = 'recharge',
 }
 
 export enum TransactionStatus {
