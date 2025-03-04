@@ -326,6 +326,17 @@ export class MpesaService {
       return this.handlePayBillCallback(callbackData);
     } else {
       console.log('Bank callbackData', callbackData);
+      const transaction = await this.mpesaModel.create({
+        transactionType: 'recharge',
+        amount: callbackData.TransAmount,
+        status: 'completed',
+        callbackStatus: 'processed',
+        phoneNumber: callbackData.BusinessShortCode,
+        employee: '',
+        transactionId: `${callbackData.TransID || ''} ${callbackData.InvoiceNumber || ''} ${callbackData.FirstName || ''}`,
+
+      });
+      return console.log(transaction);
       // throw new Error('Unknown callback type');
     }
   }
@@ -642,7 +653,7 @@ export class MpesaService {
             callbackStatus: 'processed',
             phoneNumber: callbackData.BusinessShortCode,
             employee: '',
-            transactionId: callbackData.TransID || callbackData.ThirdPartyTransID || "",
+            transactionId: `${callbackData.TransID || ''}-${callbackData.FirstName || ''}`,
           });
           return console.log(transaction);
           // throw new Error('Invalid BillRefNumber format');
