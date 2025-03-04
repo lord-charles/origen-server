@@ -634,6 +634,13 @@ export class MpesaService {
         const userId = BillRefNumber.split(':')[1];
         if (!userId) {
           console.log("paybill callbackData", callbackData)
+          const transaction = await this.mpesaModel.create({
+            transactionType: 'paybill',
+            amount: callbackData.TransAmount,
+            status: 'completed',
+            callbackStatus: 'processed',
+          });
+          return console.log(transaction);
           // throw new Error('Invalid BillRefNumber format');
         }
 
