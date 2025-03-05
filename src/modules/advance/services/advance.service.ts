@@ -670,6 +670,32 @@ Purpose: ${createAdvanceDto.purpose || 'Not specified'}`;
       },
       { totalDisbursed: 0, repaymentBalance: 0, totalRepaid: 0 },
     );
+    const repaymentMetrics = advances.reduce(
+      (acc, advance) => {
+        // Count all disbursed advances as previous advances
+        if (
+          advance.status === 'repaying' ||
+          advance.status === 'repaid'
+        ) {
+          acc.totalDisbursed += advance.amount;
+        }
+
+        // Add to repayment balance if advance is disbursed or being repaid
+        if (advance.status === 'repaying') {
+          const amountRepaid = advance.amountRepaid || 0;
+          const totalDue = advance.amount;
+          acc.repaymentBalance += Math.ceil(totalDue - amountRepaid);
+        }
+
+        // Calculate total repaid amount
+        if (advance.amountRepaid) {
+          acc.totalRepaid += advance.amountRepaid;
+        }
+
+        return acc;
+      },
+      { totalDisbursed: 0, repaymentBalance: 0, totalRepaid: 0 },
+    );
 
     // Calculate next payday (25th of current or next month)
     const nextPayday = this.calculateNextPayday();
@@ -692,6 +718,7 @@ Purpose: ${createAdvanceDto.purpose || 'Not specified'}`;
       { totalAmount: 0, totalInterest: 0 },
     );
 
+
     // Calculate total withdrawn amount
     const totalWithdrawnAmount = approvedAdvances.reduce(
       (sum, advance) => sum + (advance.amountWithdrawn || 0),
@@ -706,7 +733,7 @@ Purpose: ${createAdvanceDto.purpose || 'Not specified'}`;
     return {
       availableAdvance: Math.max(
         0,
-        availableAdvance - metrics.repaymentBalance,
+        availableAdvance - repaymentMetrics.repaymentBalance,
       ),
       maxAdvance: maxAdvanceAmount,
       basicSalary,

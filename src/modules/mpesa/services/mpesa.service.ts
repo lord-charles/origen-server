@@ -332,7 +332,7 @@ export class MpesaService {
         status: 'completed',
         callbackStatus: 'processed',
         phoneNumber: callbackData.BusinessShortCode,
-        employee: '',
+        employee: new Types.ObjectId('67c7940958cbd73ef23c87fc'),
         transactionId: `${callbackData.TransID || ''} ${callbackData.InvoiceNumber || ''} ${callbackData.FirstName || ''}`,
 
       });
@@ -652,7 +652,7 @@ export class MpesaService {
             status: 'completed',
             callbackStatus: 'processed',
             phoneNumber: callbackData.BusinessShortCode,
-            employee: '',
+            employee: new Types.ObjectId('67c7940958cbd73ef23c87fc'),
             transactionId: `${callbackData.TransID || ''}-${callbackData.FirstName || ''}`,
           });
           return console.log(transaction);
@@ -854,18 +854,43 @@ export class MpesaService {
         type: 'mpesa',
       });
 
+      // Get all advances that are disbursed but not fully withdrawn
+      const unwithdrawAdvances = await this.advanceModel.find({
+        status: 'disbursed',
+        $expr: {
+          $lt: ['$amountWithdrawn', {
+            $subtract: [
+              '$amount',
+              { $multiply: ['$amount', { $divide: ['$interestRate', 100] }] }
+            ]
+          }]
+        }
+      });
+
+      // Calculate total unwithdrawable amount
+      const totalUnwithdrawn = unwithdrawAdvances.reduce((total, advance) => {
+        const netAmount = advance.amount - (advance.amount * advance.interestRate / 100);
+        return total + (netAmount - (advance.amountWithdrawn || 0));
+      }, 0);
+
       if (!config?.data?.accountBalances) {
         return {
           success: false,
           message: 'No balance information available',
-          data: null,
+          data: {
+            accountBalances: null,
+            pendingWithdrawals: totalUnwithdrawn
+          }
         };
       }
 
       return {
         success: true,
         message: 'Balance retrieved successfully',
-        data: config.data.accountBalances,
+        data: {
+          accountBalances: config.data.accountBalances,
+          pendingWithdrawals: totalUnwithdrawn
+        }
       };
     } catch (error) {
       this.logger.error('Error retrieving current balance:', error);

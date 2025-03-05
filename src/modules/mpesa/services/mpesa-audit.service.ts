@@ -34,7 +34,6 @@ export class MpesaAuditService {
       const skip = (page - 1) * limit;
 
       const query: any = {
-        transactionType: 'b2c',
         status: 'completed',
       };
 
@@ -51,7 +50,7 @@ export class MpesaAuditService {
       const transactions = await this.mpesaModel
         .find(query)
         .populate<{ employee: Employee }>('employee', 'email nationalId')
-        .sort({ createdAt: 1 })
+        .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
         .lean() as PopulatedMpesaTransaction[];
@@ -69,7 +68,7 @@ export class MpesaAuditService {
           (transaction.b2cUtilityAccountFunds || 0) + (transaction.amount || 0);
 
         return {
-          transactionId: transaction.conversationId,
+          transactionId: transaction.transactionId,
           mpesaReceiptNumber: transaction.mpesaReceiptNumber,
           transactionDate: transaction.createdAt,
           amount: transaction.amount,
@@ -84,11 +83,11 @@ export class MpesaAuditService {
             nationalId: transaction.employee?.nationalId || 'N/A',
           },
           status: transaction.status,
+          type: transaction.transactionType,
         };
       });
 
       return {
-        success: true,
         data: {
           transactions: transformedTransactions,
           pagination: {
