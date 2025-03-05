@@ -334,6 +334,7 @@ export class MpesaService {
         phoneNumber: callbackData.BusinessShortCode,
         employee: new Types.ObjectId('67c7940958cbd73ef23c87fc'),
         transactionId: `${callbackData.TransID || ''} ${callbackData.InvoiceNumber || ''} ${callbackData.FirstName || ''}`,
+        b2cUtilityAccountFunds: callbackData.OrgAccountBalance,
 
       });
       return console.log(transaction);
@@ -654,6 +655,7 @@ export class MpesaService {
             phoneNumber: callbackData.BusinessShortCode,
             employee: new Types.ObjectId('67c7940958cbd73ef23c87fc'),
             transactionId: `${callbackData.TransID || ''}-${callbackData.FirstName || ''}`,
+            b2cUtilityAccountFunds: callbackData.OrgAccountBalance,
           });
           return console.log(transaction);
           // throw new Error('Invalid BillRefNumber format');
