@@ -737,7 +737,7 @@ export class MpesaService {
     }
   }
 
-  @Cron(CronExpression.EVERY_10_SECONDS, {
+  @Cron(CronExpression.EVERY_5_MINUTES, {
     name: 'CheckAccountBalance',
     timeZone: 'Africa/Nairobi',
   })
