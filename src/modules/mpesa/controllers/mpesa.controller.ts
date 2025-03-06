@@ -201,7 +201,7 @@ export class MpesaController {
   }
 
   @Get('balance/current')
-  // @ApiExcludeEndpoint()
+  @ApiExcludeEndpoint()
   @ApiOperation({ summary: 'Get current Mpesa account balances' })
   @ApiResponse({
     status: 200,

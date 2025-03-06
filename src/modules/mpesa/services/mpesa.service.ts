@@ -737,7 +737,7 @@ export class MpesaService {
     }
   }
 
-  @Cron(CronExpression.EVERY_5_MINUTES, {
+  @Cron(CronExpression.EVERY_10_SECONDS, {
     name: 'CheckAccountBalance',
     timeZone: 'Africa/Nairobi',
   })
@@ -751,7 +751,7 @@ export class MpesaService {
         PartyA: this.shortCode,
         IdentifierType: '4',
         Remarks: 'Balance check query',
-        QueueTimeOutURL: this.MPESA_QUEUE_TIME_OUT_URL,
+        QueueTimeOutURL: "https://yourdomain.com/timeout",
         ResultURL: this.MPESA_BALANCE_CALLBACK_URL,
       };
 
