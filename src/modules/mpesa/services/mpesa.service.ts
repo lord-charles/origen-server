@@ -751,7 +751,7 @@ export class MpesaService {
         PartyA: this.shortCode,
         IdentifierType: '4',
         Remarks: 'Balance check query',
-        QueueTimeOutURL: "https://yourdomain.com/timeout",
+        QueueTimeOutURL: this.MPESA_QUEUE_TIME_OUT_URL,
         ResultURL: this.MPESA_BALANCE_CALLBACK_URL,
       };
 

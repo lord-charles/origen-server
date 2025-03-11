@@ -166,14 +166,11 @@ export class AuthService {
         throw new NotFoundException('User not found with this National ID');
       }
 
-      // Generate a new 4-digit PIN
       const newPin = this.generatePin();
       const hashedPin = await bcrypt.hash(newPin, 10);
 
-      // Update user's PIN
       await this.userService.updatePin(user.nationalId, hashedPin);
 
-      // Send SMS with new PIN if phone number exists
       if (user.phoneNumber) {
         await this.notificationService.sendRegistrationPin(
           user.phoneNumber,
@@ -240,9 +237,6 @@ export class AuthService {
 
   /**
    * Verify PIN
-   * @param plainPin Plain text PIN
-   * @param hashedPin Hashed PIN
-   * @returns boolean
    */
   private async verifyPin(
     plainPin: string,
@@ -253,8 +247,6 @@ export class AuthService {
 
   /**
    * Remove sensitive information from user object
-   * @param user User object
-   * @returns Sanitized user object
    */
   sanitizeUser(user: User | UserDocument): Partial<User> {
     const userObj = 'toObject' in user ? user.toObject() : user;
@@ -264,8 +256,6 @@ export class AuthService {
 
   /**
    * Get user profile by ID
-   * @param userId User ID
-   * @returns Sanitized user profile
    */
   async getUserProfile(userId: string): Promise<Partial<User>> {
     const user = await this.userService.findById(userId);
