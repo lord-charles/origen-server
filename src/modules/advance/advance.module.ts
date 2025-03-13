@@ -15,6 +15,8 @@ import { MpesaTransaction, MpesaTransactionSchema } from '../mpesa/schemas/mpesa
 import { WalletTransaction, WalletTransactionSchema } from '../wallet/schemas/wallet-transaction.schema';
 import { SystemLog, SystemLogSchema } from '../system-logs/schemas/system-log.schema';
 import { SystemLogsService } from '../system-logs/services/system-logs.service';
+import { AdvanceBatchUpdateService } from './services/advance-batch-update.service';
+import { AdvanceBatchUpdateController } from './controllers/advance-batch-update.controller';
 
 @Module({
   imports: [
@@ -31,8 +33,8 @@ import { SystemLogsService } from '../system-logs/services/system-logs.service';
     SystemLogsModule,
     NotificationsModule,
   ],
-  controllers: [AdvanceController, AdvancePaymentController],
-  providers: [AdvanceService, AdvancePaymentService, SystemLogsService],
+  controllers: [AdvanceController, AdvancePaymentController, AdvanceBatchUpdateController],
+  providers: [AdvanceService, AdvancePaymentService, SystemLogsService, AdvanceBatchUpdateService],
   exports: [AdvanceService, AdvancePaymentService],
 })
 export class AdvanceModule {}

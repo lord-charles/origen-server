@@ -655,7 +655,7 @@ Purpose: ${createAdvanceDto.purpose || 'Not specified'}`;
         }
 
         // Add to repayment balance if advance is disbursed or being repaid
-        if (advance.status === 'disbursed' || advance.status === 'repaying') {
+        if (advance.status === 'disbursed' || advance.status === 'repaying'|| advance.status === 'repaid') {
           const amountRepaid = advance.amountRepaid || 0;
           const totalDue = advance.amount;
           acc.repaymentBalance += Math.ceil(totalDue - amountRepaid);
