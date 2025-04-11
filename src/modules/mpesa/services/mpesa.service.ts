@@ -192,7 +192,8 @@ export class MpesaService {
         key: 'mpesa_config',
         type: 'mpesa',
       });
-      console.log(config?.data?.accountBalances);
+      
+      // console.log(config?.data?.accountBalances);
       if (dto.amount > config?.data?.accountBalances?.utility?.balance) {
         throw new HttpException(
           {

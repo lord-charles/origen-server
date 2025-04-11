@@ -107,6 +107,7 @@ export class ReportsService {
     const advances = await this.advanceModel
       .find({
         createdAt: { $gte: monthStart, $lte: monthEnd },
+        status: { $in: ['disbursed', 'repaying', 'repaid'] }
       })
       .populate('employee', 'firstName lastName email phoneNumber nationalId employeeId department position')
       .populate('approvedBy', 'firstName lastName employeeId')
