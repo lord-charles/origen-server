@@ -62,11 +62,48 @@ export class ReportsService {
       const config = await this.getNotificationConfig();
       if (!config?.data) return;
 
-      const reportData = await this.getMonthlyReportData();
-      const reportBuffer = await this.generateReport(
-        reportData,
-        config.data.reportFormat || 'excel',
-      );
+      // const reportData = await this.getMonthlyReportData();
+      // const reportBuffer = await this.generateReport(
+      //   reportData,
+      //   config.data.reportFormat || 'excel',
+      // );
+
+      const data = await this.getMonthlyReportData();
+      const aggregatedData = {
+        period: data.period,
+        summary: data.summary,
+        advances: this.filterAndSummarizeAdvances(data.advances)
+      };
+
+      const now = new Date();
+      const timestamp = format(now, 'yyyy-MM-dd_HH-mm', { locale: enGB });
+
+
+
+
+      let reportBuffer: Buffer;
+      let filename: string;
+      let contentType: string;
+
+      switch (config.data.reportFormat.toLowerCase()) {
+        case 'pdf':
+          reportBuffer = await this.generatePDFReport(aggregatedData);
+          filename = `advance_report_${timestamp}.pdf`;
+          contentType = 'application/pdf';
+          break;
+        case 'excel':
+          reportBuffer = await this.generateExcelReport(aggregatedData);
+          filename = `advance_report_${timestamp}.xlsx`;
+          contentType = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
+          break;
+        case 'csv':
+          reportBuffer = await this.generateCSVReport(aggregatedData);
+          filename = `advance_report_${timestamp}.csv`;
+          contentType = 'text/csv';
+          break;
+        default:
+          throw new Error('Unsupported format');
+      }
 
       // Get admins subscribed to monthly reports
       const admins =
@@ -80,6 +117,7 @@ export class ReportsService {
             admin.email,
             reportBuffer,
             config.data.reportFormat || 'excel',
+ 
           );
         }
 
@@ -91,6 +129,9 @@ export class ReportsService {
       this.logger.log(
         `Monthly report generated and sent to ${admins.length} admins`,
       );
+    
+
+     
     } catch (error) {
       this.logger.error(
         `Failed to generate/send monthly report: ${error.message}`,
@@ -647,7 +688,7 @@ export class ReportsService {
     reportBuffer: Buffer,
     Format: string,
   ) {
-    const subject = 'Monthly Advance Report';
+    const subject = 'Final Monthly Advance Report';
     const message = this.generateEmailTemplate();
     const now = new Date();
     const timestamp = format(now, 'yyyy-MM-dd_HH-mm', { locale: enGB });
