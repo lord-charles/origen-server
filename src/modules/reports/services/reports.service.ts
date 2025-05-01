@@ -144,13 +144,16 @@ export class ReportsService {
     const now = new Date();
     const monthStart = startOfMonth(now);
     const monthEnd = endOfMonth(now);
+    // const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    // const monthStart = startOfMonth(lastMonth);
+    // const monthEnd = endOfMonth(lastMonth);
 
     const advances = await this.advanceModel
       .find({
         createdAt: { $gte: monthStart, $lte: monthEnd },
         status: { $in: ['disbursed', 'repaying', 'repaid'] }
       })
-      .populate('employee', 'firstName lastName email phoneNumber nationalId employeeId department position')
+      .populate('employee', 'firstName lastName email phoneNumber nationalId employeeId department position payrollNumber')
       .populate('approvedBy', 'firstName lastName employeeId')
       .populate('disbursedBy', 'firstName lastName employeeId')
       .exec();
@@ -229,30 +232,31 @@ export class ReportsService {
     // Define columns with proper width and styling
     worksheet.columns = [
       { header: 'Employee ID', key: 'empId', width: 15 },
+      { header: 'OR Number', key: 'payrollNumber', width: 15 },
       { header: 'Full Name', key: 'name', width: 25 },
       { header: 'National ID', key: 'nationalId', width: 15 },
       { header: 'Email', key: 'email', width: 30 },
       { header: 'Phone', key: 'phone', width: 20 },
       { header: 'Department', key: 'department', width: 20 },
       { header: 'Position', key: 'position', width: 20 },
-      { header: 'Purpose', key: 'purpose', width: 25 },
+      // { header: 'Purpose', key: 'purpose', width: 25 },
       { header: 'Advance Amount', key: 'amount', width: 15 },
-      { header: 'Interest Rate (%)', key: 'interestRate', width: 15 },
-      { header: 'Interest Amount', key: 'interestAmount', width: 15 },
+      // { header: 'Interest Rate (%)', key: 'interestRate', width: 15 },
+      // { header: 'Interest Amount', key: 'interestAmount', width: 15 },
       { header: 'Total Repayment', key: 'totalRepayment', width: 15 },
       { header: 'Amount Withdrawn', key: 'amountWithdrawn', width: 15 },
       { header: 'Repaid Amount', key: 'repaidAmount', width: 15 },
       { header: 'Outstanding', key: 'outstanding', width: 15 },
-      { header: 'Repayment Period', key: 'repaymentPeriod', width: 15 },
+      // { header: 'Repayment Period', key: 'repaymentPeriod', width: 15 },
       { header: 'Installment Amount', key: 'installmentAmount', width: 15 },
       { header: 'Status', key: 'status', width: 15 },
-      { header: 'Request Date', key: 'requestDate', width: 20 },
-      { header: 'Approval Date', key: 'approvalDate', width: 20 },
-      { header: 'Approved By', key: 'approvedBy', width: 20 },
-      { header: 'Disbursed Date', key: 'disbursedDate', width: 20 },
-      { header: 'Disbursed By', key: 'disbursedBy', width: 20 },
-      { header: 'Payment Method', key: 'paymentMethod', width: 15 },
-      { header: 'Comments', key: 'comments', width: 30 },
+      // { header: 'Request Date', key: 'requestDate', width: 20 },
+      // { header: 'Approval Date', key: 'approvalDate', width: 20 },
+      // { header: 'Approved By', key: 'approvedBy', width: 20 },
+      // { header: 'Disbursed Date', key: 'disbursedDate', width: 20 },
+      // { header: 'Disbursed By', key: 'disbursedBy', width: 20 },
+      // { header: 'Payment Method', key: 'paymentMethod', width: 15 },
+      // { header: 'Comments', key: 'comments', width: 30 },
     ];
 
     // Title and Report Period
@@ -297,6 +301,7 @@ export class ReportsService {
     data.advances.forEach((advance) => {
       const row = worksheet.addRow({
         empId: advance.employee?.employeeId || 'N/A',
+        payrollNumber: advance.employee?.payrollNumber || 'N/A',
         name: advance.employee?.firstName && advance.employee?.lastName ?
           `${advance.employee.firstName} ${advance.employee.lastName}` : 'N/A',
         nationalId: advance.employee?.nationalId || 'N/A',
@@ -304,38 +309,44 @@ export class ReportsService {
         phone: advance.employee?.phoneNumber || 'N/A',
         department: advance.employee?.department || 'N/A',
         position: advance.employee?.position || 'N/A',
-        purpose: advance.purpose,
+        // purpose: advance.purpose,
         amount: advance.amount,
-        interestRate: advance.interestRate / 100,
-        interestAmount: (advance.amount * advance.interestRate) / 100,
+        // interestRate: advance.interestRate / 100,
+        // interestAmount: (advance.amount * advance.interestRate) / 100,
         totalRepayment: advance.totalRepayment,
         amountWithdrawn: advance.amountWithdrawn || 0,
         repaidAmount: advance.amountRepaid || 0,
         outstanding: advance.totalRepayment - (advance.amountRepaid || 0),
-        repaymentPeriod: advance.repaymentPeriod,
+        // repaymentPeriod: advance.repaymentPeriod,
         installmentAmount: advance.installmentAmount,
         status: advance.status,
-        requestDate: this.formatDate(advance.requestedDate),
-        approvalDate: this.formatDate(advance.approvedDate),
-        approvedBy: advance.approvedBy?.firstName ?
-          `${advance.approvedBy.firstName} ${advance.approvedBy.lastName} (${advance.approvedBy.employeeId})` : 'N/A',
-        disbursedDate: this.formatDate(advance.disbursedDate),
-        disbursedBy: advance.disbursedBy?.firstName ?
-          `${advance.disbursedBy.firstName} ${advance.disbursedBy.lastName} (${advance.disbursedBy.employeeId})` : 'N/A',
-        paymentMethod: advance.preferredPaymentMethod,
-        comments: advance.comments || 'N/A',
+        // requestDate: this.formatDate(advance.requestedDate),
+        // approvalDate: this.formatDate(advance.approvedDate),
+        // approvedBy: advance.approvedBy?.firstName ?
+        //   `${advance.approvedBy.firstName} ${advance.approvedBy.lastName} (${advance.approvedBy.employeeId})` : 'N/A',
+        // disbursedDate: this.formatDate(advance.disbursedDate),
+        // disbursedBy: advance.disbursedBy?.firstName ?
+        //   `${advance.disbursedBy.firstName} ${advance.disbursedBy.lastName} (${advance.disbursedBy.employeeId})` : 'N/A',
+        // paymentMethod: advance.preferredPaymentMethod,
+        // comments: advance.comments || 'N/A',
       });
 
       // Style number columns
       ['amount', 'interestAmount', 'totalRepayment', 'amountWithdrawn', 'repaidAmount', 'outstanding', 'installmentAmount'].forEach(key => {
-        const cell = row.getCell(worksheet.getColumn(key).number);
+        const colDef = worksheet.columns.find(col => col.key === key);
+        if (!colDef) return; // skip if column is not defined
+        const col = worksheet.getColumn(key);
+        const cell = row.getCell(col.number);
         cell.numFmt = '#,##0.00';
         cell.alignment = { horizontal: 'right' };
       });
 
       // Style percentage columns
       ['interestRate'].forEach(key => {
-        const cell = row.getCell(worksheet.getColumn(key).number);
+        const colDef = worksheet.columns.find(col => col.key === key);
+        if (!colDef) return;
+        const col = worksheet.getColumn(key);
+        const cell = row.getCell(col.number);
         cell.numFmt = '0.00%';
         cell.alignment = { horizontal: 'right' };
       });
@@ -482,6 +493,7 @@ export class ReportsService {
     const records = data.advances.map((advance: any) => ({
       // Employee Details
       employeeId: advance.employee?.employeeId || 'N/A',
+      payrollNumber: advance.employee?.payrollNumber || 'N/A',
       firstName: advance.employee?.firstName || 'N/A',
       lastName: advance.employee?.lastName || 'N/A',
       nationalId: advance.employee?.nationalId || 'N/A',
@@ -521,6 +533,7 @@ export class ReportsService {
       header: [
         // Employee Details
         { id: 'employeeId', title: 'Employee ID' },
+        { id: 'payrollNumber', title: 'OR Number' },
         { id: 'firstName', title: 'First Name' },
         { id: 'lastName', title: 'Last Name' },
         { id: 'nationalId', title: 'National ID' },
